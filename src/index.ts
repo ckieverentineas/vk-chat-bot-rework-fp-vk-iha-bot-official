@@ -12,7 +12,7 @@ import { InitGameRoutes } from './engine/init';
 import { send } from 'process';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { env } from 'process';
-
+const Az = require('az');
 const translate = require('secret-package-for-my-own-use');
 dotenv.config()
 
@@ -50,21 +50,32 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 		const data_old = Date.now()
         let count = 0
         let count_circle = 0
-        const temp: Array<string> = context.text.toLowerCase().replace(/[^а-яА-Я ]/g, "").split(/(?:,| )+/)
+		const temp: Array<string> = Az.Tokens(context.text.toLowerCase()).done();
+        //const temp: Array<string> = context.text.toLowerCase().replace(/[^а-яА-Я ]/g, "").split(/(?:,| )+/)
 		let ans: string = ''
-		for (let j = 0; j < temp.length-1; j++) {
-			const find_one = await prisma.word_Couple.findMany({ where: { name_word_first: temp[j].toLowerCase() }})
-			console.log("🚀 ~ file: index.ts:55 ~ vk.updates.on ~ find_one", find_one)
+		if (temp.length > 1) {
+			for (let j = 0; j < temp.length-1; j++) {
+				const find_one = await prisma.word_Couple.findMany({ where: { name_word_first: temp[j].toLowerCase() }})
+				if (find_one.length >= 1) {
+					ans += find_one.length > 1 ? `${find_one[randomInt(0, find_one.length)].name_word_first} ${find_one[randomInt(0, find_one.length)].name_word_second} ` : `${find_one[0].name_word_first} ${find_one[0].name_word_second} `
+					count++
+				}
+				count_circle++
+			}   
+		} else {
+			const find_one = await prisma.word_Couple.findMany({ where: { name_word_first: context.text.toLowerCase() }})
 			if (find_one.length >= 1) {
 				ans += find_one.length > 1 ? `${find_one[randomInt(0, find_one.length)].name_word_first} ${find_one[randomInt(0, find_one.length)].name_word_second} ` : `${find_one[0].name_word_first} ${find_one[0].name_word_second} `
 				count++
 			}
 			count_circle++
-		}   
+		}
+		
 		const res = await translate(`${ans ? ans : "Я не понимаю"}`, { from: 'auto', to: 'en', autoCorrect: true });
+		if (res.text == "I don't understand") { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); return }
 		const fin = await translate(`${res.text ? res.text : "Я не понимаю"}`, { from: 'en', to: 'ru', autoCorrect: true });
-		console.log(fin.text)
-        context.send(`Получен ответ: ${deleteDuplicate(fin.text)}, Сложность: ${count_circle} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+		console.log(`Получено сообщение: ${context.text} Сгенерирован ответ: ${deleteDuplicate(fin.text)}, Сложность: ${count_circle} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+        await context.send(`${deleteDuplicate(fin.text)}`)
 	}
 	return next();
 })

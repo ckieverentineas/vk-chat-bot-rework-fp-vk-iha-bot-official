@@ -76,7 +76,7 @@ async function Book_Random_Analyze(arr_sentence: Array<string>, context: any) {
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/обучение/, async (context) => {
         context.send(`Начинаем парсинг книг!`)
-        const arr = await Book_Random_String('./src/book/tom1-7.txt')
+        const arr = await Book_Random_String('./src/book/Zhenskaya_baza.txt')
         await Book_Random_Word(arr, context)
     })
 }
