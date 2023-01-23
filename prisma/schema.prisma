@@ -1,0 +1,13 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+model Word_Couple {
+  id             Int         @id @default(autoincrement())
+  name_word_first  String
+  name_word_second String
+}
