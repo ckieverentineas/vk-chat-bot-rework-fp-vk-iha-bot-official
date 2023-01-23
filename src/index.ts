@@ -70,12 +70,17 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			}
 			count_circle++
 		}
+		try {
+			const res = await translate(`${ans ? ans : "Я не понимаю"}`, { from: 'auto', to: 'en', autoCorrect: true });
+			if (res.text == "I don't understand") { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); return }
+			const fin = await translate(`${res.text ? res.text : "Я не понимаю"}`, { from: 'en', to: 'ru', autoCorrect: true });
+			console.log(`Получено сообщение: ${context.text} Сгенерирован ответ: ${deleteDuplicate(fin.text)}, Сложность: ${count_circle} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+			await context.send(`${deleteDuplicate(fin.text)}`)
+		} catch {
+			console.log(`Авария, Получено сообщение: ${context.text} Сгенерирован ответ: ${deleteDuplicate(ans)}, Сложность: ${count_circle} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+			await context.send(`${deleteDuplicate(ans)}`)
+		}
 		
-		const res = await translate(`${ans ? ans : "Я не понимаю"}`, { from: 'auto', to: 'en', autoCorrect: true });
-		if (res.text == "I don't understand") { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); return }
-		const fin = await translate(`${res.text ? res.text : "Я не понимаю"}`, { from: 'en', to: 'ru', autoCorrect: true });
-		console.log(`Получено сообщение: ${context.text} Сгенерирован ответ: ${deleteDuplicate(fin.text)}, Сложность: ${count_circle} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
-        await context.send(`${deleteDuplicate(fin.text)}`)
 	}
 	return next();
 })
