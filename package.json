@@ -31,9 +31,9 @@
     "xlsx": "^0.18.5"
   },
   "dependencies": {
-    "az": "^0.2.3",
     "dotenv": "^16.0.3",
     "jimp": "^0.16.2",
+    "natural": "^6.1.4",
     "secret-package-for-my-own-use": "^1.4.2"
   }
 }
