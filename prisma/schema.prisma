@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
 }
 
 datasource db {
@@ -10,4 +11,9 @@ model Word_Couple {
   id             Int         @id @default(autoincrement())
   name_word_first  String
   name_word_second String
+}
+
+model Dictionary {
+  id             Int         @id @default(autoincrement())
+  name  String @unique
 }

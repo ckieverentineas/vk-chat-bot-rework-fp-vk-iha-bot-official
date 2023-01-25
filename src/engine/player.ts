@@ -58,26 +58,35 @@ async function Book_Random_Word(arr_sentence: Array<string>, context: any, name_
         console.log(err);
     }
 }
-async function Book_Random_Analyze(arr_sentence: Array<string>, context: any) {
+async function Book_Random_Dictionary(arr_sentence: Array<string>, context: any, name_book: string) {
     try {
         const data_old = Date.now()
         console.log(`Переданно предложений: ${arr_sentence.length}`)
         let count = 0
         let count_circle = 0
         for (const i in arr_sentence) {
-            const temp: Array<string> = arr_sentence[i].split(/(?:,| )+/)
+            const arr: Array<string> = tokenizer.tokenize(arr_sentence[i])
+            //const arr: Array<string> = await Az.Tokens(arr_sentence[i]).done();
+            //const arr: Array<string> = arr_sentence[i].toLowerCase().replace(/[^а-яА-Я ]/g, "").split(/(?:,| )+/)
+            const temp = await arr.filter((value: any) => value !== undefined && value.length > 0);
             for (let j = 0; j < temp.length-1; j++) {
-                const find_one = await prisma.word_Couple.findFirst({ where: { name_word_first: temp[j], name_word_second: temp[j+1] }})
-                if (!find_one) {
-                    const create_one = await prisma.word_Couple.create({ data: { name_word_first: temp[j], name_word_second: temp[j+1] }})
-                    console.log(`Add new couple: ${create_one.name_word_first} > ${create_one.name_word_second}`)
-                    count++
+                const one = temp[j].toLowerCase()
+                try {
+                    const find_one = await prisma.dictionary.findFirst({ where: { name: one }})
+                    if (!find_one) {
+                        const create_one = await prisma.dictionary.create({ data: { name: one }})
+                        console.log(`Add new dictionary: ${create_one.name}`)
+                        count++
+                    }
+                } catch {
+                    console.log(`Ошибка добавления нового слова`)
                 }
+                
                 count_circle++
             }
         }
-        console.log(`Обработано пар: ${count_circle}, Добавлено пар: ${count}`)
-        context.send(`Обработано пар: ${count_circle}, Добавлено пар: ${count} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+        console.log(`Обработано слов: ${count_circle}, Добавлено слов: ${count}`)
+        context.send(`Книга: ${name_book} Обработано слов: ${count_circle}, Добавлено слов: ${count} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
     } catch (err) {
         console.log(err);
     }
@@ -86,20 +95,39 @@ async function readDir(path: string) {
     try { const files = await fs.readdir(path); return files } catch (err) { console.error(err); }
 }
 async function MultipleReader(dir:string, file:string, context: any) {
-    const arr = await Book_Random_String(`${dir}/${file}`)
-    context.send(`Изучаем книгу: ${file}, строк: ${arr.length}`)
+    const arr: Array<string> = await Book_Random_String(`${dir}/${file}`) || []
+    await context.send(`Изучаем книгу: ${file}, строк: ${arr.length}`)
     await Book_Random_Word(arr, context, file)
+}
+async function MultipleReaderDictionary(dir:string, file:string, context: any) {
+    const arr: Array<string> = await Book_Random_String(`${dir}/${file}`) || []
+    await context.send(`Создаем словарь: ${file}, строк: ${arr.length}`)
+    await Book_Random_Dictionary(arr, context, file)
 }
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/обучение/, async (context) => {
-        const dir = `./src/book`
-        const file_name: any = await readDir(dir)
-        console.log("🚀 ~ file: player.ts:90 ~ hearManager.hear ~ file_name", file_name)
-        for (const file of file_name) {
-            MultipleReader(dir, file, context)
+        if (context.isOutbox == false) {
+            const dir = `./src/book`
+            const file_name: any = await readDir(dir)
+            for (const file of file_name) {
+                await MultipleReader(dir, file, context)
+            }
         }
+    })
+    hearManager.hear(/словарь/, async (context) => {
+        if (context.isOutbox == false) {
+            const dir = `./src/book`
+            const file_name: any = await readDir(dir)
+            console.log("🚀 ~ file: player.ts:119 ~ hearManager.hear ~ file_name", file_name)
+            for (const file of file_name) {
+                await MultipleReaderDictionary(dir, file, context)
+            }
+        }
+
+        
         
     })
 }
+
 
     
