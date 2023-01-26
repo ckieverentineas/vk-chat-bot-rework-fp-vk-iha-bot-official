@@ -53,13 +53,14 @@ async function Word_Corrector(word:string) {
 	const analyzer = await prisma.dictionary.count({ where: { word: word } })
 	if (analyzer >= 1) { return word }
 	const word_dictionary = await prisma.dictionary.findMany()
-	const options = { includeScore: true, location: 2, threshold: 0.6, distance: 1, ignoreFieldNorm: true, keys: ['name'] }
+	const options = { includeScore: true, location: 2, threshold: 0.6, distance: 1, ignoreFieldNorm: true, keys: ['word'] }
 	const fuse = new Fuse(word_dictionary, options)
 	const finder = fuse.search(word)
 	let clear: Array<string> = []
+	
 	for (const i in finder) {
 		if (finder[i].score == finder[0].score) {
-			clear.push(finder[i].item.name)
+			clear.push(finder[i].item.word)
 		}
 	}
 	return clear.length >= 1 ? clear[randomInt(0, clear.length)] : false
@@ -92,7 +93,9 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 				}   
 			}
 			ans += '. '
+			
 		}
+		console.log("🚀 ~ file: index.ts:96 ~ vk.updates.on ~ ans", deleteDuplicate(ans))
 		try {
 			const res = await translate(`${ans}`, { from: 'auto', to: 'en', autoCorrect: true });
 			if (res.text == ".") { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); return }
