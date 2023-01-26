@@ -15,6 +15,9 @@ import { env } from 'process';
 const Fuse = require("fuse.js")
 const natural = require('natural');
 const translate = require('secret-package-for-my-own-use');
+const RussianNouns = require('russian-nouns-js');
+const rne = new RussianNouns.Engine(); //Адская махина склонений
+
 dotenv.config()
 export const token: string = String(process.env.token)
 export const root: number = Number(process.env.root) //root user
@@ -45,8 +48,10 @@ vk.updates.on('message_new', hearManager.middleware);
 //регистрация роутов из других классов
 InitGameRoutes(hearManager)
 registerUserRoutes(hearManager)
-function deleteDuplicate(a: any){a=a.toString().replace(/ /g,",");a=a.replace(/[ ]/g,"").split(",");for(var b: any =[],c=0;c<a.length;c++)-1==b.indexOf(a[c])&&b.push(a[c]);b=b.join(", ");return b=b.replace(/,/g," ")};
+async function deleteDuplicate(a: any){a=a.toString().replace(/ /g,",");a=a.replace(/[ ]/g,"").split(",");for(var b: any =[],c=0;c<a.length;c++)-1==b.indexOf(a[c])&&b.push(a[c]);b=b.join(", ");return b=b.replace(/,/g," ")};
 async function Word_Corrector(word:string) {
+	const analyzer = await prisma.dictionary.count({ where: { word: word } })
+	if (analyzer >= 1) { return word }
 	const word_dictionary = await prisma.dictionary.findMany()
 	const options = { includeScore: true, location: 2, threshold: 0.6, distance: 1, ignoreFieldNorm: true, keys: ['name'] }
 	const fuse = new Fuse(word_dictionary, options)
@@ -57,9 +62,7 @@ async function Word_Corrector(word:string) {
 			clear.push(finder[i].item.name)
 		}
 	}
-	const corrector = clear.length >= 1 ? clear[randomInt(0, clear.length)] : false
-	const find_one: any = corrector ? await prisma.word_Couple.findMany({ where: { name_word_first: corrector }}) : false
-	return await find_one.length >= 1 ? find_one[randomInt(0, find_one.length)].name_word_first : false
+	return clear.length >= 1 ? clear[randomInt(0, clear.length)] : false
 }
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
@@ -68,24 +71,22 @@ vk.updates.on('message_new', async (context: any, next: any) => {
         let count = 0
         let count_circle = 0
 		const sentence: Array<string> = tokenizer_sentence.tokenize(context.text.toLowerCase())
-		
-        //const temp: Array<string> = context.text.toLowerCase().replace(/[^а-яА-Я ]/g, "").split(/(?:,| )+/)
-		
 		let ans: string = ''
-		let finres: string = ''
 		
+		let finres: string = ''
 		for (const stce in sentence) {
 			const temp: Array<string> = tokenizer.tokenize(sentence[stce])
+			if (temp.length == 0) { continue }
 			if (temp.length >= 1) {
 				for (let j = 0; j < temp.length; j++) {
-					const word = temp[j].toLowerCase()
-					const find_check: any = await prisma.word_Couple.findMany({ where: { name_word_first: word } })
-					const corrector = await find_check.length >= 1 ? find_check[randomInt(0, find_check.length)].name_word_first : await Word_Corrector(word)
-					finres += `${corrector} `
-					const find_one: any = await corrector != false ? await prisma.word_Couple.findMany({ where: { name_word_first: corrector }}) : false
-					if (find_one.length >= 1) {
-						ans += `${find_one[randomInt(0, find_one.length)].name_word_first} ${find_one[randomInt(0, find_one.length)].name_word_second} `
+					const word: string | false = await Word_Corrector(temp[j].toLowerCase())
+					if (!word) { continue}
+					const check: any = await prisma.dictionary.findFirst({ where: { word: word}, select: {id: true} })
+					const reseach: any = await prisma.couple.findMany({ where: { id_first: check.id }, include: { first: true, second: true } })
+					if (reseach.length >= 1) {
+						ans += ` ${reseach[randomInt(0, reseach.length)].first.word} ${reseach[randomInt(0, reseach.length)].second.word} `
 						count++
+						finres += `${word} `
 					}
 					count_circle++
 				}   
@@ -93,14 +94,14 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			ans += '. '
 		}
 		try {
-			const res = await translate(`${ans ? ans : "Я не понимаю"}`, { from: 'auto', to: 'en', autoCorrect: true });
-			if (res.text == "I don't understand") { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); return }
+			const res = await translate(`${ans}`, { from: 'auto', to: 'en', autoCorrect: true });
+			if (res.text == ".") { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); return }
 			const fin = await translate(`${res.text ? res.text : "Я не понимаю"}`, { from: 'en', to: 'ru', autoCorrect: true });
-			console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${finres}] \n Сгенерирован ответ: [${deleteDuplicate(fin.text)}] \n Количество итераций: [${count_circle}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.]\n\n`)
-			await context.send(`${deleteDuplicate(fin.text)}`)
+			console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${finres}] \n Сгенерирован ответ: [${await deleteDuplicate(fin.text)}] \n Количество итераций: [${count_circle}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.]\n\n`)
+			await context.send(`${await deleteDuplicate(fin.text)}`)
 		} catch {
-			console.log(`Авария, Получено сообщение: ${context.text} Сгенерирован ответ: ${deleteDuplicate(ans)}, Сложность: ${count_circle} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
-			await context.send(`${deleteDuplicate(ans)}`)
+			console.log(`Авария, Получено сообщение: ${context.text} Сгенерирован ответ: ${await deleteDuplicate(ans)}, Сложность: ${count_circle} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+			await context.send(`${await deleteDuplicate(ans)}`)
 		}
 	}
 	return next();

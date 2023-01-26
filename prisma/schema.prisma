@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["fullTextSearch", "fullTextIndex"]
 }
 
@@ -7,13 +7,30 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
-model Word_Couple {
-  id             Int         @id @default(autoincrement())
-  name_word_first  String
-  name_word_second String
-}
 
 model Dictionary {
-  id             Int         @id @default(autoincrement())
-  name  String @unique
+  id     Int      @id @default(autoincrement())
+  word   String   @unique
+  First  Couple[] @relation("First")
+  Second Couple[] @relation("Second")
+  score  Int      @default(0)
+  crdate DateTime @default(now())
+}
+
+model Couple {
+  id        Int        @id @default(autoincrement())
+  id_first  Int
+  id_second Int
+  first     Dictionary @relation("First", fields: [id_first], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  second    Dictionary @relation("Second", fields: [id_second], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  score     Int        @default(0)
+  position  Int        
+  crdate DateTime @default(now())
+}
+
+model Answer {
+  id      Int    @id @default(autoincrement())
+  qestion String
+  answer  String
+  crdate DateTime @default(now())
 }
