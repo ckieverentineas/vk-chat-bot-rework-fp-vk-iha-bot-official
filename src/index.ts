@@ -72,7 +72,6 @@ async function Sentence_Corrector(word:string) {
 	const options = { includeScore: true, location: 2, threshold: 0.5, distance: 3, keys: ['qestion'] }
 	const fuse = new Fuse(word_dictionary, options)
 	const finder = fuse.search(word)
-	console.log("🚀 ~ file: index.ts:75 ~ Sentence_Corrector ~ finder", finder)
 	let clear: Array<string> = []
 	
 	for (const i in finder) {
@@ -111,8 +110,8 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 					const word: string | false = await Word_Corrector(temp[j].toLowerCase())
 					if (!word) { continue}
 					const check: any = await prisma.dictionary.findFirst({ where: { word: word}, select: {id: true} })
-					const reseach_target: any = await prisma.couple.findMany({ where: { id_first: check.id, position: j }, include: { first: true, second: true } })
-					const reseach: any = reseach_target.length >= 1 ? reseach_target : await prisma.couple.findMany({ where: { id_first: check.id }, include: { first: true, second: true } })
+					const reseach_target: any = await prisma.couple.findMany({ where: { id_first: check.id, position: j }, include: { first: true, second: true }, orderBy: {score: 'desc'} })
+					const reseach: any = reseach_target.length >= 1 ? reseach_target : await prisma.couple.findMany({ where: { id_first: check.id }, include: { first: true, second: true }, orderBy: {score: 'desc'} })
 					if (reseach.length >= 1) {
 						ans += ` ${reseach[randomInt(0, reseach.length)].first.word} ${reseach[randomInt(0, reseach.length)].second.word} `
 						count++
@@ -123,7 +122,6 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			}
 			ans += '. '
 		}
-		console.log("🚀 ~ file: index.ts:96 ~ vk.updates.on ~ ans", deleteDuplicate(ans))
 		try {
 			let ans_res = ans
 			if (googletr == false) {
@@ -132,7 +130,6 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 				const fin = await translate(`${res.text ? await deleteDuplicate(res.text) : "Я не понимаю"}`, { from: 'en', to: 'ru', autoCorrect: true });
 				ans_res = await deleteDuplicate(fin.text)
 			}
-			
 			console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${finres}] \n Сгенерирован ответ: [${ans_res}] \n Количество итераций: [${count_circle}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: ${googletr ? "Вопрос-ответ" : "Генератор" } \n\n`)
 			await context.send(`${ans_res}`)
 		} catch {

@@ -24,6 +24,18 @@ async function Book_Random_String(filename: string) {
         console.log(err);
     }
 }
+async function Book_Random_String_Helper(filename: string) {
+    try {
+        const contents = await fsPromises.readFile(filename, 'utf-8');
+        const arr: Array<string> = contents.split(/\r?\n/)
+        //const arr: any = contents.split(/\r?\n/);
+        const clear = arr.filter((value: any) => value !== undefined && value.length > 1);
+        console.log(`Обнаружено количество предложений: ${clear.length}`)
+        return clear;
+    } catch (err) {
+        console.log(err);
+    }
+}
 async function Book_Random_Word(arr_sentence: Array<string>, context: any, name_book: string) {
     try {
         const data_old = Date.now()
@@ -110,7 +122,7 @@ async function Book_Random_Question(arr_sentence: Array<string>, context: any, n
             //const arr: Array<string> = await Az.Tokens(arr_sentence[i]).done();
             //const arr: Array<string> = arr_sentence[i].toLowerCase().replace(/[^а-яА-Я ]/g, "").split(/(?:,| )+/)
             const temp = arr.filter((value: any) => value !== undefined && value.length > 0);
-            for (let j = 0; j < temp.length-1; j++) {
+            for (let j = 0; j < temp.length-2; j++) {
                 const word1 = temp[j].toLowerCase()
                 const word2 = temp[j+1].toLowerCase()
                 try {
@@ -151,7 +163,7 @@ async function MultipleReaderDictionary(dir:string, file:string, context: any) {
     await Book_Random_Dictionary(arr, context, file)
 }
 async function MultipleReaderQuestion(dir:string, file:string, context: any) {
-    const arr: Array<string> = await Book_Random_String(`${dir}/${file}`) || []
+    const arr: Array<string> = await Book_Random_String_Helper(`${dir}/${file}`) || []
     await context.send(`Создаем списки вопросов и ответов к ним: ${file}, строк: ${arr.length}`)
     await Book_Random_Question(arr, context, file)
 }
