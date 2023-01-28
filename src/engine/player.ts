@@ -99,6 +99,40 @@ async function Book_Random_Dictionary(arr_sentence: Array<string>, context: any,
         console.log(err);
     }
 }
+async function Book_Random_Question(arr_sentence: Array<string>, context: any, name_book: string) {
+    try {
+        const data_old = Date.now()
+        console.log(`Переданно предложений: ${arr_sentence.length}`)
+        let count = 0
+        let count_circle = 0
+        for (const i in arr_sentence) {
+            const arr: Array<string> = arr_sentence[i].split('\\')
+            //const arr: Array<string> = await Az.Tokens(arr_sentence[i]).done();
+            //const arr: Array<string> = arr_sentence[i].toLowerCase().replace(/[^а-яА-Я ]/g, "").split(/(?:,| )+/)
+            const temp = arr.filter((value: any) => value !== undefined && value.length > 0);
+            for (let j = 0; j < temp.length-1; j++) {
+                const word1 = temp[j].toLowerCase()
+                const word2 = temp[j+1].toLowerCase()
+                try {
+                    const first: any = await prisma.answer.findFirst({ where: { qestion: word1, answer: word2 }, select: {id: true}})
+                    if (!first) {
+                        const create = await prisma.answer.create({ data: { qestion: word1, answer: word2 }})
+                        console.log(`Add new question: ${create.id} - ${create.qestion} > ${create.answer}`)
+                        count++
+                    }
+                } catch (err) {
+                    console.log(`Ошибка ${err}`)
+                }
+                
+                count_circle++
+            }
+        }
+        console.log(`Read couple: ${count_circle}, Set new couple: ${count}`)
+        await context.send(`✅ Список вопросов: ${name_book} Найдено вопрсов: ${count_circle}, Добавлено ответов: ${count} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+    } catch (err) {
+        console.log(err);
+    }
+}
 async function Move_Book(dir:string, file:string) {
     await fs.copyFile(`${dir}/${file}`, `${dir}/done/${file}`, COPYFILE_EXCL)
     await fs.unlink(`${dir}/${file}`)
@@ -116,8 +150,13 @@ async function MultipleReaderDictionary(dir:string, file:string, context: any) {
     await context.send(`Создаем словарь: ${file}, строк: ${arr.length}`)
     await Book_Random_Dictionary(arr, context, file)
 }
+async function MultipleReaderQuestion(dir:string, file:string, context: any) {
+    const arr: Array<string> = await Book_Random_String(`${dir}/${file}`) || []
+    await context.send(`Создаем списки вопросов и ответов к ним: ${file}, строк: ${arr.length}`)
+    await Book_Random_Question(arr, context, file)
+}
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
-    hearManager.hear(/обучение/, async (context) => {
+    hearManager.hear(/syscalledu/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             const dir = `./src/book`
             const file_name: any = await readDir(dir)
@@ -126,12 +165,21 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
     })
-    hearManager.hear(/словарь/, async (context) => {
+    hearManager.hear(/syscalldict/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             const dir = `./src/book`
             const file_name: any = await readDir(dir)
             for (const file of file_name) {
                 await MultipleReaderDictionary(dir, file, context)
+            }
+        }
+    })
+    hearManager.hear(/syscallbase/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root) {
+            const dir = `./src/book`
+            const file_name: any = await readDir(dir)
+            for (const file of file_name) {
+                await MultipleReaderQuestion(dir, file, context)
             }
         }
     })
