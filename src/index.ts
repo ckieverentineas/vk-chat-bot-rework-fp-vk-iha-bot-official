@@ -53,7 +53,7 @@ async function Word_Corrector(word:string) {
 	const analyzer = await prisma.dictionary.count({ where: { word: word } })
 	if (analyzer >= 1) { return word }
 	const word_dictionary = await prisma.dictionary.findMany()
-	const options = { includeScore: true, location: 2, threshold: 0.6, distance: 1, ignoreFieldNorm: true, keys: ['word'] }
+	const options = { includeScore: true, location: 2, threshold: 0.5, distance: 1, ignoreFieldNorm: true, keys: ['word'] }
 	const fuse = new Fuse(word_dictionary, options)
 	const finder = fuse.search(word)
 	let clear: Array<string> = []
@@ -63,7 +63,7 @@ async function Word_Corrector(word:string) {
 			clear.push(finder[i].item.word)
 		}
 	}
-	return clear.length >= 1 ? clear[randomInt(0, clear.length)] : false
+	return finder.length >= 1 ? finder[0].item.word : false
 }
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
