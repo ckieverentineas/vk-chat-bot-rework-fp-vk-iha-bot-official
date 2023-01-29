@@ -172,8 +172,8 @@ async function Book_Random_Question_Mod(arr_sentence: Array<string>, context: an
                 const word1 = temp[j].toLowerCase()
                 const word2 = temp[j+1].toLowerCase()
                 try {
-                    const first: any = await prisma.answer.findFirst({ where: { qestion: word1, answer: word2 }, select: {id: true}})
-                    if (!first) {
+                    const first: any = await prisma.answer.findMany({ where: { qestion: word1, answer: word2 }})
+                    if (first.length < 1) {
                         const create = await prisma.answer.create({ data: { qestion: word1, answer: word2 }})
                         console.log(`Add new question experimental: ${create.id} - ${create.qestion} > ${create.answer}`)
                         count++
@@ -219,7 +219,7 @@ async function MultipleReaderQuestionMod(dir:string, file:string, context: any) 
     await Book_Random_Question_Mod(arr, context, file)
 }
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
-    hearManager.hear(/syscalledu/, async (context) => {
+    hearManager.hear(/!пара/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             const dir = `./src/book`
             const file_name: any = await readDir(dir)
@@ -228,7 +228,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
     })
-    hearManager.hear(/syscalldict/, async (context) => {
+    hearManager.hear(/!словарь/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             const dir = `./src/book`
             const file_name: any = await readDir(dir)
@@ -237,7 +237,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
     })
-    hearManager.hear(/syscallbase/, async (context) => {
+    hearManager.hear(/!база/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             const dir = `./src/book`
             const file_name: any = await readDir(dir)
@@ -246,7 +246,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
     })
-    hearManager.hear(/syscallother/, async (context) => {
+    hearManager.hear(/!базамод/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             const dir = `./src/book`
             const file_name: any = await readDir(dir)
@@ -255,17 +255,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
     })
-    hearManager.hear(/syscallconfig/, async (context) => {
+    hearManager.hear(/!конфиг/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             await context.send(`Панель администратора: \n 👤 Личные сообщения: Разрешены \n 👥 Беседы: Разрешены \n ⚙ Защиты отсуствуют`)
         }
     })
-    hearManager.hear(/syscallhelp/, async (context) => {
+    hearManager.hear(/!помощь/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             await context.send(`☠ Команды бота уже сделанные:
-            \n⚙ syscalldict (словарь) - пополняет словарный запас бота на все еще не встреченные слова до этого, нужен для нечеткого поиска в базе данных и становления связей*
-            \n⚙ syscalledu (обучение) - устанавливает парные связи слов на основе существующего словаря и чтения книг*
-            \n⚙ syscallbase (вопрос-ответ) - считывает тхт формата: Вопрос\Ответ и все что до второй , остальное нам нафиг не надо. закидывая вопрос-ответы в базу данных
+            \n⚙ !словарь - пополняет словарный запас бота на все еще не встреченные слова до этого, нужен для нечеткого поиска в базе данных и становления связей*
+            \n⚙ !пара - устанавливает парные связи слов на основе существующего словаря и чтения книг*
+            \n⚙ !база - считывает тхт формата: Вопрос\Ответ и все что до второй , остальное нам нафиг не надо. закидывая вопрос-ответы в базу данных
+            \n⚙ !базамод - считывает тхт формата: Вопрос \\n Ответ \\r\\n ... Вопрос \\n Ответ \\r\\n закидывая вопрос-ответы в базу данных
+            \n⚙ !конфиг - считывает тхт формата: Вопрос\Ответ и все что до второй , остальное нам нафиг не надо. закидывая вопрос-ответы в базу данных
             \n💡 По пути ./src/book/ кладем в директорию (папку) книгу/answer_database в txt формата, и вначале выполняем команду словарь, по ее окончанию обучение.
             \n💡 Примечание: 1 МБ txt считывается 4+ часа, т.е. при загрузки 1 МБ тхт документа потребуется 4 часа на пополнение словарного запаса, и еще 4 для установления связей на основе полученных слов и их последовательности в книге. А при считывании вопрос-ответ базы данных 6-7 строк в секунду.`)
         }
