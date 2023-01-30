@@ -7,7 +7,17 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
-
+model User {
+  id Int @id @default(autoincrement())
+  idvk Int @unique
+  last String @default(" ")
+  lastlast String @default(" ")
+  memory Boolean @default(false)
+  ignore Boolean @default(false)
+  count Int @default(0)
+  crdate DateTime @default(now())
+  update DateTime @default(now())
+}
 model Dictionary {
   id     Int      @id @default(autoincrement())
   word   String   @unique
@@ -33,4 +43,5 @@ model Answer {
   qestion String
   answer  String
   crdate DateTime @default(now())
+  @@unique([qestion, answer])
 }

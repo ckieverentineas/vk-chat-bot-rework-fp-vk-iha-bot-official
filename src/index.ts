@@ -12,6 +12,7 @@ import { InitGameRoutes } from './engine/init';
 import { send } from 'process';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { env } from 'process';
+import { User_Ignore, User_Login, User_Registration, User_ignore_Check } from './engine/helper';
 const Fuse = require("fuse.js")
 const natural = require('natural');
 const translate = require('secret-package-for-my-own-use');
@@ -83,7 +84,11 @@ async function Sentence_Corrector(word:string) {
 }
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
-	if (context.isOutbox == false) {
+	await User_Registration(context)
+	if (context.isOutbox == false && await User_ignore_Check(context)) {
+		await User_Ignore(context)
+		const bot_memory = await User_Login(context)
+		if (!bot_memory) { return }
 		const data_old = Date.now()
         let count = 0
         let count_circle = 0
