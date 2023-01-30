@@ -11,6 +11,7 @@ export async function User_Login(context: any) {
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
     const time = new Date()
     if (user.last != context.text && user?.lastlast != context.text) {
+        if (user.memorytrg != false) { await prisma.user.update({ where: { idvk: context.senderId }, data: { memorytrg: false } }) }
         if (user.count < 1) {
             const update = await prisma.user.update({ where: { idvk: context.senderId }, data: { last: context.text, lastlast: user.last, count: { increment: 1 } } })
         } else {
@@ -18,7 +19,11 @@ export async function User_Login(context: any) {
         }
         return true
     } else {
-        await context.send(`🛡 Уведомление от системы памяти: \n ${user.last.length != '' ? `Вы мне уже писали ранее: ${user.last}` : '' } \n ${user.lastlast.length != '' ? `Как-то невзначай отправляли: ${user.lastlast}` : '' }.`)
+        if (user.memorytrg == false) {
+            await context.send(`🛡 Уведомление от системы памяти: \n ${user.last.length != '' ? `Вы мне уже писали ранее: ${user.last}` : '' } \n ${user.lastlast.length != '' ? `Как-то невзначай отправляли: ${user.lastlast}` : '' }.`)
+            await prisma.user.update({ where: { idvk: context.senderId }, data: { memorytrg: true } })
+        }
+        
         if (user.count < 1) {
             const update = await prisma.user.update({ where: { idvk: context.senderId }, data: { count: { increment: 1 } } })
         } else {
@@ -30,7 +35,6 @@ export async function User_Login(context: any) {
 export async function User_Ignore(context: any) {
     const time: any = new Date()
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
-    console.log("🚀 ~ file: helper.ts:36 ~ User_Ignore ~ time - user.update", time - user.update)
     if (time - user.update < 3000) {
         const login = await prisma.user.update({ where: { idvk: context.senderId }, data: { ignore: user.ignore ? false : true } })
         await context.send(`🛡 Уведомление от системы защиты: \n Пользователь ${context.senderId}, добро пожаловать в игнор.`)
