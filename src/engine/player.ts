@@ -272,6 +272,20 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             \n💡 Примечание: 1 МБ txt считывается 4+ часа, т.е. при загрузки 1 МБ тхт документа потребуется 4 часа на пополнение словарного запаса, и еще 4 для установления связей на основе полученных слов и их последовательности в книге. А при считывании вопрос-ответ базы данных 6-7 строк в секунду.`)
         }
     })
+    hearManager.hear(/!мутинг/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            const target: number = Number(context.text.replace(/[^0-9]/g,"")) || 0
+            if (target > 0) {
+                const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
+                if (user) {
+                    const login = await prisma.user.update({ where: { idvk: target }, data: { ignore: user.ignore ? false : true } })
+                    await context.send(`@id${login.idvk}(Пользователь) ${login.ignore ? 'добавлен в лист игнора' : 'убран из листа игнора'}`)
+                } else {
+
+                }
+            }
+        }
+    })
 }
 
 
