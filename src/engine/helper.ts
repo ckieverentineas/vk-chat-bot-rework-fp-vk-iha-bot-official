@@ -1,4 +1,4 @@
-import { prisma } from "..";
+import { prisma, vk } from "..";
 
 export async function User_Registration(context: any) {
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
@@ -33,15 +33,24 @@ export async function User_Login(context: any) {
     }
 }
 export async function User_Ignore(context: any) {
+    const info: any = await User_Info(context)
     const time: any = new Date()
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
     if (time - user.update < 3000) {
-        const login = await prisma.user.update({ where: { idvk: context.senderId }, data: { ignore: user.ignore ? false : true } })
-        await context.send(`🛡 Уведомление от системы защиты: \n Пользователь ${context.senderId}, добро пожаловать в игнор.`)
-        console.log(`Пользователь добавлен в лист игнора: ${login.idvk}`)
-        return false
+        if (user.warning < 2) {
+            const login = await prisma.user.update({ where: { idvk: context.senderId }, data: { warning: { increment: 1 } } })
+            await context.send(user.warning == 0 ? `⚠ Внимание: \n Уважаемый @id${context.senderId}(${info.first_name}), не отправляйте сообщения настолько часто.` : `⛔ Последнее предупреждение: \n Уважаемый @id${context.senderId}(${info.first_name}), не спамьте, а то будете проигнорированы в дальнейшем.`)
+            console.log(`Пользователь добавлен в лист игнора: ${login.idvk}`)
+        } else {
+            const login = await prisma.user.update({ where: { idvk: context.senderId }, data: { ignore: user.ignore ? false : true, warning: 0 } })
+            await context.send(`🛡 Уведомление от системы защиты: \n Пользователь @id${context.senderId}(${info.first_name}), ваш idvk ${context.senderId} добавлен в лист игнора.`)
+            console.log(`Пользователь добавлен в лист игнора: ${login.idvk}`)
+        }
     }
-    return true
+}
+export async function User_Info(context: any) {
+    let [userData]= await vk.api.users.get({user_id: context.senderId});
+    return userData
 }
 export async function User_ignore_Check(context: any) {
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
