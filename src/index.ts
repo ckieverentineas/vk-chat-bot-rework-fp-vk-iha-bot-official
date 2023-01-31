@@ -51,9 +51,9 @@ registerUserRoutes(hearManager)
 
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
-	await User_Registration(context)
+	const regtrg = await User_Registration(context)
 	if (context.isOutbox == false && await User_ignore_Check(context)) {
-		await User_Ignore(context)
+		if (regtrg) { await User_Ignore(context) }
 		const bot_memory = await User_Login(context)
 		if (!bot_memory) { return }
 		const data_old = Date.now()

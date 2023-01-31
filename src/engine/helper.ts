@@ -62,7 +62,9 @@ export async function User_Registration(context: any) {
     if (!user) {
         const registration = await prisma.user.create({ data: { idvk: context.senderId}})
         console.log(`Зарегестрирован новый пользователь: ${registration.idvk}`)
+        return false
     }
+    return true
 }
 export async function User_Login(context: any) {
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
