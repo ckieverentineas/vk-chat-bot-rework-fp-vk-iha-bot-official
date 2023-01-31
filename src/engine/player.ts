@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, User } from "@prisma/client";
 import { HearManager } from "@vk-io/hear";
 import { randomInt } from "crypto";
 import { send } from "process";
@@ -8,7 +8,7 @@ import * as xlsx from 'xlsx';
 
 import { answerTimeLimit, chat_id, prisma, root, timer_text, tokenizer, tokenizer_sentence, vk } from '../index';
 import { readDir, MultipleReader, MultipleReaderDictionary, MultipleReaderQuestion, MultipleReaderQuestionMod } from "./parser";
-
+import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration } from './helper';
 
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -50,18 +50,22 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     hearManager.hear(/!конфиг/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
-            await context.send(`Панель администратора: \n 👤 Личные сообщения: Разрешены \n 👥 Беседы: Разрешены \n ⚙ Защиты отсуствуют`)
+            const count_dict = await prisma.dictionary.count({})
+            const count_couple = await prisma.couple.count({})
+            const count_answer = await prisma.answer.count({})
+            await context.send(`Панель администратора: \n 👤 Личные сообщения: Разрешены \n 👥 Беседы: Разрешены \n ⚙ Защиты: ✅Антиспам ✅"Я не повторяюсь" \n 📜 Генератор: Слов в словаре, ${count_dict} Парных связей, ${count_couple} \n 📚 Количество вопросов с ответами: ${count_answer}`)
         }
     })
     hearManager.hear(/!помощь/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
-            await context.send(`☠ Команды бота уже сделанные:
+            await context.send(`☠ Команды бота уже сделанные: \n
                 \n⚙ !словарь - пополняет словарный запас бота на все еще не встреченные слова до этого, нужен для нечеткого поиска в базе данных и становления связей*
                 \n⚙ !пара - устанавливает парные связи слов на основе существующего словаря и чтения книг*
                 \n⚙ !база - считывает тхт формата: Вопрос\\Ответ и все что до второй , остальное нам нафиг не надо. закидывая вопрос-ответы в базу данных
                 \n⚙ !базомод - считывает тхт формата: Вопрос \\n Ответ \\r\\n ... Вопрос \\n Ответ \\r\\n закидывая вопрос-ответы в базу данных
                 \n⚙ !конфиг - считывает тхт формата: Вопрос\\Ответ и все что до второй , остальное нам нафиг не надо. закидывая вопрос-ответы в базу данных
                 \n⚙ !мутинг idvk - где idvk, пишем уникальный идентификатор пользователя вк, для включения или отключения режима его игнорирования
+                \n⚙ !инфа - выдает информацию о вас и вашем статусе для релевантности бота, конечно вам покажут не все=)
                 \n💡 По пути ./src/book/ кладем в директорию (папку) книгу/answer_database в txt формата, и вначале выполняем команду словарь, по ее окончанию обучение.
                 \n💡 Примечание: 1 МБ txt считывается 4+ часа, т.е. при загрузки 1 МБ тхт документа потребуется 4 часа на пополнение словарного запаса, и еще 4 для установления связей на основе полученных слов и их последовательности в книге. А при считывании вопрос-ответ базы данных 6-7 строк в секунду.`
             )
@@ -80,6 +84,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     await context.send(`@id${target}(Пользователья) не существует`)
                     console.log(`@id${target}(Пользователья) не существует`)
                 }
+            }
+        }
+    })
+    hearManager.hear(/!инфа/, async (context) => {
+        const regtrg = await User_Registration(context)
+        if (context.isOutbox == false && context?.text != undefined && await User_ignore_Check(context)) {
+            if (regtrg) { await User_Ignore(context) }
+            const bot_memory = await User_Login(context)
+            if (!bot_memory) { return }
+            const user: User | null = await prisma.user.findFirst({ where: { idvk: context.senderId } })
+            const info: any = await User_Info(context)
+            if (user) {
+                await context.send(` 👤 Имя: @id${user.idvk}(${info.first_name}): \n\n 💳 Порядковый номер: ${user.id} \n 🎥 Кремлевский номер: ${user.idvk} \n ⚠ Получено предупреждений: ${user.warning}/3 \n ⚰ Дата резервации: ${user.crdate} \n ⛓ Статус: ${user.ignore ? 'В стоп-листе' : 'Законопослушны'}`)
             }
         }
     })
