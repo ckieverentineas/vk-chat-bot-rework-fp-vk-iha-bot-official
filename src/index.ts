@@ -52,7 +52,7 @@ registerUserRoutes(hearManager)
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
 	const regtrg = await User_Registration(context)
-	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0) {
+	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context?.text?.length >= 1) {
 		if (regtrg) { await User_Ignore(context) }
 		const bot_memory = await User_Login(context)
 		if (!bot_memory) { return }
@@ -60,6 +60,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 		const sentence: Array<string> = tokenizer_sentence.tokenize(context.text.toLowerCase())
 		let ans: any = []
 		for (const stce in sentence) {
+			await context.setActivity();
 			//берем предложение
 			const sentence_sel: string = sentence[stce]
 			//если его нет, идем дальше
@@ -80,6 +81,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			const word_list = tokenizer.tokenize(sentence_sel)
 			let sentence_build = ''
 			for (let j = 0; j < word_list.length; j++) {
+				await context.setActivity();
 				const word_input = word_list[j]
 				let word_sel: string | null = null
 				if (!word_input || word_input.length < 1) { continue }
@@ -111,6 +113,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 					if (!res.text) { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); continue }
 					const fin = await translate(`${res.text}`, { from: 'en', to: 'ru', autoCorrect: true });
 					ans.push({correct_text: sentence_new, result_text: fin.text, type: "Генератор Цыган"})
+					continue 
 				}
 			} catch (e) { 
 				console.log(e); 
