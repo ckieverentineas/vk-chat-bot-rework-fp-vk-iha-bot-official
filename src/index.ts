@@ -1,6 +1,6 @@
 import { VK, Keyboard, IMessageContextSendOptions, ContextDefaultState, MessageContext, VKAppPayloadContext, KeyboardBuilder } from 'vk-io';
 import { HearManager } from '@vk-io/hear';
-import { PrismaClient } from '@prisma/client'
+import { Answer, Couple, Dictionary, PrismaClient } from '@prisma/client'
 import {
     QuestionManager,
     IQuestionMessageContext
@@ -57,57 +57,71 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 		const bot_memory = await User_Login(context)
 		if (!bot_memory) { return }
 		const data_old = Date.now()
-        let count = 0
-        let count_circle = 0
 		const sentence: Array<string> = tokenizer_sentence.tokenize(context.text.toLowerCase())
-		let ans: string = ''
-		
-		let finres: string = ''
-		let googletr = false
+		let ans: any = []
 		for (const stce in sentence) {
-			const temp: Array<string> = tokenizer.tokenize(sentence[stce])
-			if (temp.length == 0) { continue }
+			//берем предложение
+			const sentence_sel: string = sentence[stce]
+			//если его нет, идем дальше
+			if (!sentence_sel || sentence.length < 1) { continue }
+			//если оно есть, глянем в базе данных
+			const sentence_check: Answer[] | null = await prisma.answer.findMany({ where: { qestion: sentence_sel }})
+			if (sentence_check.length != 0) {
+				ans.push({ correct_text: sentence_sel, result_text: sentence_check.length > 1 ? sentence_check[randomInt(0, sentence_check.length)].answer : sentence_check[0].answer, type: "Вопрос-Ответ"})
+				continue
+			}
+			//если его нет в базе данных, тогда надо поискать нечетко
 			const sentence_corrected = await Sentence_Corrector(sentence[stce])
 			if (sentence_corrected) { 
-				const answerok = await prisma.answer.findMany({ where: { qestion: sentence_corrected }, select: { answer: true } })
-				if (answerok) {
-					ans += ` ${answerok[randomInt(0, answerok.length)].answer} `
-					finres += ` ${sentence_corrected} `
-					googletr = true
+				ans.push({correct_text: sentence_corrected.qestion, result_text: sentence_corrected.answer, type: "Вопрос-Ответ С коррекцией"})
+				continue
+			}
+			//Если нифига нет, тогда давайте сами строить, фигли
+			const word_list = tokenizer.tokenize(sentence_sel)
+			let sentence_build = ''
+			for (let j = 0; j < word_list.length; j++) {
+				const word_input = word_list[j]
+				let word_sel: string | null = null
+				if (!word_input || word_input.length < 1) { continue }
+				//смотрим слово в словаре
+				const word_check: Dictionary | null = await prisma.dictionary.findFirst({ where: { word: word_input }})
+				if (word_check) { 
+					word_sel = word_check.word
+				} else {
+					//иначе правим ошибки
+					const word: string | null = await Word_Corrector(word_input)
+					if (word) { word_sel = word } else { continue }
+				}
+				const get_id_word: Dictionary | null = await prisma.dictionary.findFirst({ where: { word: word_sel} })
+				const reseach_target: any | null = await prisma.couple.findMany({ where: { id_first: get_id_word?.id, position: j }, include: { first: true, second: true }, orderBy: {score: 'desc'} })
+				if (reseach_target && reseach_target.length >= 1) {
+					sentence_build += reseach_target.length > 1 ?  ` ${reseach_target[randomInt(0, reseach_target.length)].first.word} ${reseach_target[randomInt(0, reseach_target.length)].second.word} ` : ` ${reseach_target[0].first.word} ${reseach_target[0].second.word} `
+					continue
+				} 
+				const couple: any | null = await prisma.couple.findMany({ where: { id_first: get_id_word?.id, position: j }, include: { first: true, second: true }, orderBy: {score: 'desc'} })
+				if (couple && couple.length >= 1) {
+					sentence_build += couple.length > 1 ? ` ${couple[randomInt(0, couple.length)].first.word} ${couple[0].second.word} ` : ` ${couple[randomInt(0, couple.length)].first.word} ${couple[0].second.word} `
 					continue
 				}
 			}
-			if (temp.length >= 1) {
-				for (let j = 0; j < temp.length; j++) {
-					const word: string | false = await Word_Corrector(temp[j].toLowerCase())
-					if (!word) { continue}
-					const check: any = await prisma.dictionary.findFirst({ where: { word: word}, select: {id: true} })
-					const reseach_target: any = await prisma.couple.findMany({ where: { id_first: check.id, position: j }, include: { first: true, second: true }, orderBy: {score: 'desc'} })
-					const reseach: any = reseach_target.length >= 1 ? reseach_target : await prisma.couple.findMany({ where: { id_first: check.id }, include: { first: true, second: true }, orderBy: {score: 'desc'} })
-					if (reseach.length >= 1) {
-						ans += ` ${reseach[randomInt(0, reseach.length)].first.word} ${reseach[randomInt(0, reseach.length)].second.word} `
-						count++
-						finres += `${word} `
-					}
-					count_circle++
-				}   
+			try {
+				const sentence_new: string | null = await deleteDuplicate(sentence_build)
+				if (sentence_new) {
+					const res = await translate(`${sentence_new}`, { from: 'auto', to: 'en', autoCorrect: true });
+					if (!res.text) { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); continue }
+					const fin = await translate(`${res.text}`, { from: 'en', to: 'ru', autoCorrect: true });
+					ans.push({correct_text: sentence_new, result_text: fin.text, type: "Генератор Цыган"})
+				}
+			} catch (e) { 
+				console.log(e); 
+				const sentence_new: string | null = await deleteDuplicate(sentence_build)
+				ans.push({correct_text: sentence_new, result_text: sentence_new, type: "Генератор"})
+				continue 
 			}
-			ans += '. '
 		}
-		try {
-			let ans_res = ans
-			if (googletr == false) {
-				const res = await translate(`${ans}`, { from: 'auto', to: 'en', autoCorrect: true });
-				if (await deleteDuplicate(res.text) == ".") { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); return }
-				const fin = await translate(`${res.text ? await deleteDuplicate(res.text) : "Я не понимаю"}`, { from: 'en', to: 'ru', autoCorrect: true });
-				ans_res = await deleteDuplicate(fin.text)
-			}
-			console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${finres}] \n Сгенерирован ответ: [${ans_res}] \n Количество итераций: [${count_circle}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: ${googletr ? "Вопрос-ответ" : "Генератор" } \n\n`)
-			await context.send(`${ans_res}`)
-		} catch {
-			console.log(`Авария, Получено сообщение: ${context.text} Сгенерирован ответ: ${await deleteDuplicate(ans)}, Сложность: ${count_circle} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
-			await context.send(`${await deleteDuplicate(ans)}`)
-		}
+		const answer: string = await ans.map((item: { result_text: any; }) => {return item.result_text;}).join("\r\n")
+		console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${await ans.map((item: { correct_text: any; }) => {return item.correct_text;}).join("\r\n")}] \n Сгенерирован ответ: [${await ans.map((item: { result_text: any; }) => {return item.result_text;}).join(". ")}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${await ans.map((item: { type: any; }) => {return item.type;}).join(" + ")}] \n\n`)
+		if (answer.length > 0) { await context.send(`${answer}`) }
 	}
 	return next();
 })

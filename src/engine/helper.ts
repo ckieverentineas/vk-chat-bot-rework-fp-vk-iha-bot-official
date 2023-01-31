@@ -1,6 +1,7 @@
 import { Answer, Dictionary } from "@prisma/client";
 import { prisma, vk } from "..";
 import { NounInflector } from "natural";
+import { randomInt } from "crypto";
 const Fuse = require("fuse.js")
 
 async function* Generator_Word() {
@@ -36,10 +37,13 @@ export async function Word_Corrector(word:string) {
     for await (const line of generator_word) {
         const fuse = new Fuse(line, options)
         const finder = await fuse.search(word)
-        for (const i in finder) { clear = [...clear, ...finder.slice(0, 10)] }
+        for (const i in finder) { if (finder[i].score < 0.5) { clear.push(finder[i]) } }
         await generator_word.next()
     }
-    return await clear.length >= 1 ? clear[0].item.word : false
+    //console.log(`слов до ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
+    await clear.sort(function(a:any, b:any) {return a.score - b.score})
+    //console.log(`слов после ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
+    return await clear?.length >= 1 ? clear[0].item.word : null
 }
 export async function Sentence_Corrector(word:string) {
 	const analyzer: Answer | null = await prisma.answer.findFirst({ where: { qestion: word } })
@@ -50,10 +54,13 @@ export async function Sentence_Corrector(word:string) {
     for await (const line of generator_sentence) {
         const fuse = new Fuse(line, options)
         const finder = await fuse.search(word)
-        for (const i in finder) { clear = [...clear, ...finder.slice(0, 10)] }
+        for (const i in finder) { if (finder[i].score < 0.5) { clear.push(finder[i]) } }
         await generator_sentence.next()
     }
-    return await clear.length >= 1 ? clear[0].item.qestion : false
+    //console.log(`тексто до ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
+    await clear.sort(function(a:any, b:any) {return a.score - b.score}).slice(0, 10)
+    //console.log(`текст после ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
+    return await clear ? clear.length > 1 ? clear[randomInt(0, clear.length)].item : clear[0]?.item : null
 }
 export async function deleteDuplicate(a: any){a=a.toString().replace(/ /g,",");a=a.replace(/[ ]/g,"").split(",");for(var b: any =[],c=0;c<a.length;c++)-1==b.indexOf(a[c])&&b.push(a[c]);b=b.join(", ");return b=b.replace(/,/g," ")};
 
