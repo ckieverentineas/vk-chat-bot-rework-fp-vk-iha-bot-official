@@ -12,8 +12,7 @@ import { InitGameRoutes } from './engine/init';
 import { send } from 'process';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { env } from 'process';
-import { User_Ignore, User_Login, User_Registration, User_ignore_Check } from './engine/helper';
-const Fuse = require("fuse.js")
+import { Sentence_Corrector, User_Ignore, User_Login, User_Registration, User_ignore_Check, Word_Corrector, deleteDuplicate } from './engine/helper';
 const natural = require('natural');
 const translate = require('secret-package-for-my-own-use');
 const RussianNouns = require('russian-nouns-js');
@@ -49,39 +48,7 @@ vk.updates.on('message_new', hearManager.middleware);
 //регистрация роутов из других классов
 InitGameRoutes(hearManager)
 registerUserRoutes(hearManager)
-async function deleteDuplicate(a: any){a=a.toString().replace(/ /g,",");a=a.replace(/[ ]/g,"").split(",");for(var b: any =[],c=0;c<a.length;c++)-1==b.indexOf(a[c])&&b.push(a[c]);b=b.join(", ");return b=b.replace(/,/g," ")};
-async function Word_Corrector(word:string) {
-	const analyzer = await prisma.dictionary.count({ where: { word: word } })
-	if (analyzer >= 1) { return word }
-	const word_dictionary = await prisma.dictionary.findMany()
-	const options = { includeScore: true, location: 2, threshold: 0.5, distance: 1, ignoreFieldNorm: true, keys: ['word'] }
-	const fuse = new Fuse(word_dictionary, options)
-	const finder = fuse.search(word)
-	let clear: Array<string> = []
-	
-	for (const i in finder) {
-		if (finder[i].score == finder[0].score) {
-			clear.push(finder[i].item.word)
-		}
-	}
-	return finder.length >= 1 ? finder[0].item.word : false
-}
-async function Sentence_Corrector(word:string) {
-	const analyzer = await prisma.answer.count({ where: { qestion: word } })
-	if (analyzer >= 1) { return word }
-	const word_dictionary = await prisma.answer.findMany()
-	const options = { includeScore: true, location: 2, threshold: 0.5, distance: 3, keys: ['qestion'] }
-	const fuse = new Fuse(word_dictionary, options)
-	const finder = fuse.search(word)
-	let clear: Array<string> = []
-	
-	for (const i in finder) {
-		if (finder[i].score == finder[0].score) {
-			clear.push(finder[i].item.qestion)
-		}
-	}
-	return finder.length >= 1 ? finder[0].item.qestion : false
-}
+
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
 	await User_Registration(context)

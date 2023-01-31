@@ -1,4 +1,61 @@
+import { Answer, Dictionary } from "@prisma/client";
 import { prisma, vk } from "..";
+import { NounInflector } from "natural";
+const Fuse = require("fuse.js")
+
+async function* Generator_Word() {
+    const limiter = 10000
+    const firstQueryResults: Dictionary[] | null = await prisma.dictionary.findMany({ take: limiter, orderBy: { id: 'asc' } })
+    const max: Dictionary | null = await prisma.dictionary.findFirst({ take: limiter, orderBy: { id: 'desc' } })
+    yield firstQueryResults
+    let myCursor: number | undefined = firstQueryResults[firstQueryResults.length-1].id
+    while (myCursor != null && max != null && myCursor <= max.id && myCursor != undefined) {
+        const nextQueryResults: Dictionary[] | null = await prisma.dictionary.findMany({ take: limiter, skip: 1, cursor: { id: myCursor },orderBy: { id: 'asc' } })
+        yield nextQueryResults
+        myCursor = nextQueryResults[nextQueryResults.length-1]?.id 
+    }
+}
+async function* Generator_Sentence() {
+    const limiter = 10000
+    const firstQueryResults: Answer[] | null = await prisma.answer.findMany({ take: limiter, orderBy: { id: 'asc' } })
+    const max: Answer | null = await prisma.answer.findFirst({ take: limiter, orderBy: { id: 'desc' } })
+    yield firstQueryResults
+    let myCursor: number | undefined | null = firstQueryResults[firstQueryResults.length-1].id || undefined
+    while (myCursor && max != null && myCursor <= max.id) {
+        const nextQueryResults: Answer[] | null = await prisma.answer.findMany({ take: limiter, skip: 1, cursor: { id: myCursor },orderBy: { id: 'asc' } })
+        yield nextQueryResults
+        myCursor = nextQueryResults[nextQueryResults.length-1]?.id 
+    }
+}
+export async function Word_Corrector(word:string) {
+	const analyzer: Dictionary | null = await prisma.dictionary.findFirst({ where: { word: word } })
+    if (analyzer != null) { return word }
+    let generator_word: any = Generator_Word();
+    const options = { includeScore: true, location: 2, threshold: 0.5, distance: 1, ignoreFieldNorm: true, keys: ['word'] }
+    let clear: any = []
+    for await (const line of generator_word) {
+        const fuse = new Fuse(line, options)
+        const finder = await fuse.search(word)
+        for (const i in finder) { clear = [...clear, ...finder.slice(0, 10)] }
+        await generator_word.next()
+    }
+    return await clear.length >= 1 ? clear[0].item.word : false
+}
+export async function Sentence_Corrector(word:string) {
+	const analyzer: Answer | null = await prisma.answer.findFirst({ where: { qestion: word } })
+	if (analyzer != null) { return word }
+    let generator_sentence: any = Generator_Sentence();
+    const options = { includeScore: true, location: 2, threshold: 0.5, distance: 3, keys: ['qestion'] }
+    let clear: any = []
+    for await (const line of generator_sentence) {
+        const fuse = new Fuse(line, options)
+        const finder = await fuse.search(word)
+        for (const i in finder) { clear = [...clear, ...finder.slice(0, 10)] }
+        await generator_sentence.next()
+    }
+    return await clear.length >= 1 ? clear[0].item.qestion : false
+}
+export async function deleteDuplicate(a: any){a=a.toString().replace(/ /g,",");a=a.replace(/[ ]/g,"").split(",");for(var b: any =[],c=0;c<a.length;c++)-1==b.indexOf(a[c])&&b.push(a[c]);b=b.join(", ");return b=b.replace(/,/g," ")};
 
 export async function User_Registration(context: any) {
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
