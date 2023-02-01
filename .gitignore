@@ -2,5 +2,5 @@ node_modules
 # Keep environment variables out of version control
 src/temp
 build
-
+prisma/dev.db
 .env
