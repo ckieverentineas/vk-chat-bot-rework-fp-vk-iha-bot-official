@@ -20,6 +20,7 @@ const rne = new RussianNouns.Engine(); //Адская махина склоне�
 dotenv.config()
 export const token: string = String(process.env.token)
 export const root: number = Number(process.env.root) //root user
+export const bot_id: number = Number(process.env.bot_id) //root user
 export const chat_id: number = Number(process.env.chat_id) //chat for logs
 export const group_id: number = Number(process.env.group_id)//clear chat group
 export const timer_text = { answerTimeLimit: 300_000 } // ожидать пять минут
@@ -51,7 +52,13 @@ registerUserRoutes(hearManager)
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
 	const regtrg = await User_Registration(context)
-	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context?.text?.length >= 1) {
+	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
+		if (context.isChat) {
+			await context.loadMessagePayload();
+			if ((context.hasReplyMessage && context.replyMessage.senderId != bot_id) || context.forwards.length > 1) {
+				return await next();
+			}
+		}
 		await Engine_Answer(context,regtrg)
 	}
 	return await next();
