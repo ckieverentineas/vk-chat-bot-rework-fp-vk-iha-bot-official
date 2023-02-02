@@ -22,7 +22,7 @@ async function* Generator_Sentence() {
     const firstQueryResults: Answer[] | null = await prisma.answer.findMany({ take: limiter, orderBy: { id: 'asc' } })
     const max: Answer | null = await prisma.answer.findFirst({ take: limiter, orderBy: { id: 'desc' } })
     yield firstQueryResults
-    let myCursor: number | undefined | null = firstQueryResults[firstQueryResults.length-1].id || undefined
+    let myCursor: number | undefined | null = firstQueryResults[firstQueryResults.length-1]?.id || undefined
     while (myCursor && max != null && myCursor <= max.id) {
         const nextQueryResults: Answer[] | null = await prisma.answer.findMany({ take: limiter, skip: 1, cursor: { id: myCursor },orderBy: { id: 'asc' } })
         yield nextQueryResults
@@ -68,9 +68,14 @@ export async function deleteDuplicate(a: any){a=a.toString().replace(/ /g,",");a
 export async function User_Registration(context: any) {
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
     if (!user) {
-        const registration = await prisma.user.create({ data: { idvk: context.senderId}})
-        console.log(`Зарегестрирован новый пользователь: ${registration.idvk}`)
-        return false
+        try {
+            const registration = await prisma.user.create({ data: { idvk: context.senderId}})
+            console.log(`Зарегестрирован новый пользователь: ${registration.idvk}`)
+            return false
+        } catch (e) {
+            console.log(`Возникла ошибка регистрации клиента: ${e}`)
+        }
+        
     }
     return true
 }
@@ -106,11 +111,11 @@ export async function User_Ignore(context: any) {
     if (time - user.update < 3000) {
         if (user.warning < 2) {
             const login = await prisma.user.update({ where: { idvk: context.senderId }, data: { warning: { increment: 1 } } })
-            await context.send(user.warning == 0 ? `⚠ Внимание: \n Уважаемый @id${context.senderId}(${info.first_name}), не отправляйте сообщения настолько часто.` : `⛔ Последнее предупреждение: \n Уважаемый @id${context.senderId}(${info.first_name}), не спамьте, а то будете проигнорированы в дальнейшем.`)
+            await context.send(user.warning == 0 ? `@id${context.senderId}(${info.first_name}), не отправляйте сообщения настолько часто.` : `@id${context.senderId}(${info.first_name}), не спамьте, а то будете проигнорированы в дальнейшем.`)
             console.log(`Пользователь добавлен в лист игнора: ${login.idvk}`)
         } else {
             const login = await prisma.user.update({ where: { idvk: context.senderId }, data: { ignore: user.ignore ? false : true, warning: 0 } })
-            await context.send(`🛡 Уведомление от системы защиты: \n Пользователь @id${context.senderId}(${info.first_name}), ваш idvk ${context.senderId} добавлен в лист игнора.`)
+            await context.send(`@id${context.senderId}(${info.first_name}), c idvk ${context.senderId} я с тобой больше не разговариваю.`)
             console.log(`Пользователь добавлен в лист игнора: ${login.idvk}`)
         }
     }
@@ -196,10 +201,14 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
 		const answer: string = await ans.map((item: { result_text: any; }) => {return item.result_text;}).join("\r\n")
 		console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${await ans.map((item: { correct_text: any; }) => {return item.correct_text;}).join("\r\n")}] \n Сгенерирован ответ: [${await ans.map((item: { result_text: any; }) => {return item.result_text;}).join(". ")}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${await ans.map((item: { type: any; }) => {return item.type;}).join(" + ")}] \n\n`)
 		if (answer.length > 0) { 
-            if (context.isChat) {
-                await context.reply(`${answer}`) 
-            } else {
-                await context.send(`${answer}`) 
+            try {
+                if (context.isChat) {
+                    await context.reply(`${answer}`) 
+                } else {
+                    await context.send(`${answer}`) 
+                }
+            } catch (e) {
+                console.log(`Проблема отправки сообщения в чат: ${e}`)
             }
         }
 }
