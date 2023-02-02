@@ -211,3 +211,89 @@ export async function MultipleReaderQuestionMod(dir:string, file:string, context
     await context.send(`Создаем списки вопросов и ответов к ним другого формата: ${file}, строк: ${arr.length}`)
     await Book_Random_Question_Mod(arr, context, file)
 }
+
+async function Message_Education_Couple(context: any) {
+    try {
+        const data_old = Date.now()
+        const arr_sentence: any = await Message_Education_Sentensce(context?.text?.toLowerCase())
+        console.log(`Изучаем предложения сообщения пользователя ${context.senderId} для пар слов: ${arr_sentence?.length} шт.`)
+        let count = 0
+        let count_circle = 0
+        for (const i in arr_sentence) {
+            const arr: any = await tokenizer.tokenize(arr_sentence[i])
+            const temp: any = arr?.filter((value: any) => value !== undefined && value.length > 0);
+            for (let j = 0; j < temp.length-1; j++) {
+                const word1 = temp[j].toLowerCase()
+                const word2 = temp[j+1].toLowerCase()
+                try {
+                    const first: any = await prisma.dictionary.findFirst({ where: { word: word1 }, select: {id: true}})
+                    const second: any = await prisma.dictionary.findFirst({ where: { word: word2 }, select: {id: true}})
+                    if (first && second) {
+                        const check: any = await prisma.couple.findFirst({ where: { id_first: first.id, id_second: second.id, position: j } })
+                        if (check) {
+                            await prisma.couple.update({ where: { id: check.id }, data: { score: {increment: 1} } })
+                        } else {
+                            const create = await prisma.couple.create({ data: { id_first: first.id, id_second: second.id, position: j }})
+                            console.log(`Новая пара из сообщения: ${create.id_first}-${word1} > ${create.id_second}-${word2}`)
+                            count++
+                        }
+                    }
+                } catch (err) {
+                    console.log(`Ошибка ${err}`)
+                }
+                count_circle++
+            }
+        }
+        console.log(`Прочитано слов из сообщения: ${count_circle}, Пользователь ${context.senderId} добавил новых пар: ${count} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+        //await context.send(`✅ Книга связей: ${name_book} Найдено пар: ${count_circle}, Пользователь ${context.senderId} добавил новых пар: ${count} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+    } catch (err) {
+        console.log(err);
+    }
+}
+async function Message_Education_Dictionary(context: any) {
+    try {
+        const data_old = Date.now()
+        const arr_sentence: any = await Message_Education_Sentensce(context?.text?.toLowerCase())
+        console.log(`Изучаем предложения сообщения пользователя ${context.senderId} для словаря: ${arr_sentence?.length} шт.`)
+        let count = 0
+        let count_circle = 0
+        for (const i in arr_sentence) {
+            const arr: Array<string> = tokenizer.tokenize(arr_sentence[i])
+            const temp = arr.filter((value: any) => value !== undefined && value.length > 0);
+            for (let j = 0; j < temp.length; j++) {
+                const one = temp[j].toLowerCase()
+                try {
+                    if (!one) {continue}
+                    const find_one = await prisma.dictionary.findFirst({ where: { word: one }})
+                    if (find_one) {
+                        await prisma.dictionary.update({ where: { word: one }, data: { score: {increment: 1} } })
+                    } else {
+                        const create_one = await prisma.dictionary.create({ data: { word: one }})
+                        console.log(`Новое слово из сообщения: ${create_one.id}-${create_one.word}`)
+                        count++
+                    }
+                } catch (err) {
+                    console.log(`Ошибка добавления нового слова из сообщения ${err}`)
+                }
+                count_circle++
+            }
+        }
+        console.log(`Прочитано слов из сообщения: ${count_circle}, Пользователь ${context.senderId} добавил новых слов: ${count} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+        //await context.send(`✅ Книга слов: ${name_book} Найдено слов: ${count_circle}, Сохраненно слов: ${count} Затраченно времени: ${(Date.now() - data_old)/1000} сек.`)
+    } catch (err) {
+        console.log(err);
+    }
+}
+async function Message_Education_Sentensce(contents: string) {
+    try {
+        const arr: Array<string> = await tokenizer_sentence.tokenize(contents)
+        const clear = arr.filter((value: any) => value !== undefined && value.length > 5);
+        return clear;
+    } catch (err) {
+        console.log(err);
+    }
+}
+export async function Message_Education_Module(context: any) {
+    await Message_Education_Dictionary(context)
+    await Message_Education_Couple(context)
+}

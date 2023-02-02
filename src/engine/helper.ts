@@ -2,6 +2,7 @@ import { Answer, Dictionary } from "@prisma/client";
 import { prisma, tokenizer, tokenizer_sentence, vk } from "..";
 import { NounInflector } from "natural";
 import { randomInt } from "crypto";
+import { Message_Education_Module } from "./parser";
 const Fuse = require("fuse.js")
 const translate = require('secret-package-for-my-own-use');
 
@@ -10,7 +11,7 @@ async function* Generator_Word() {
     const firstQueryResults: Dictionary[] | null = await prisma.dictionary.findMany({ take: limiter, orderBy: { id: 'asc' } })
     const max: Dictionary | null = await prisma.dictionary.findFirst({ take: limiter, orderBy: { id: 'desc' } })
     yield firstQueryResults
-    let myCursor: number | undefined = firstQueryResults[firstQueryResults.length-1].id
+    let myCursor: number | undefined = firstQueryResults[firstQueryResults?.length-1]?.id
     while (myCursor != null && max != null && myCursor <= max.id && myCursor != undefined) {
         const nextQueryResults: Dictionary[] | null = await prisma.dictionary.findMany({ take: limiter, skip: 1, cursor: { id: myCursor },orderBy: { id: 'asc' } })
         yield nextQueryResults
@@ -211,4 +212,5 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
             console.log(`Проблема отправки сообщения в чат: ${e}`)
         }
     }	
+    await Message_Education_Module(context)
 }
