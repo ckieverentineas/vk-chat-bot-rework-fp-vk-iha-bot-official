@@ -57,6 +57,26 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			await context.loadMessagePayload();
 			if ((context.hasReplyMessage && context.replyMessage.senderId != bot_id) || context.forwards.length > 1) {
 				return await next();
+			} else {
+				const data: Array<string> | null = await context.text.match(/\[id(\d+)\|+(\w+)\]|\[id(\d+)\|@(\w+)\]*/g)
+				console.log(JSON.stringify(data))
+				if (data && data.length >= 1) {
+					let finder = false
+					for (const i in data) {
+						const data_idvk = data[i].match(/\[id(\d+)\]*/gu)
+						const data_name = data[i].match(/\[*(\w+)\]|\[*@(\w+$)\]*/gu)
+						const idvk = Number(data_idvk?.[0].replace("[id", ""))
+						const name = data_name?.[0].replace("]", "").replace("@", "")
+						if (idvk == bot_id) {
+							finder = true
+							context.text = `${name} ${context.text}`
+						}
+					}
+					if (!finder) { 
+						return await next();
+					}
+				}
+				
 			}
 		}
 		await Engine_Answer(context,regtrg)
