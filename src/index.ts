@@ -83,11 +83,11 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 	}
 	return await next();
 })
-vk.updates.on('message_event', async (context: any, next: any) => { 
+/*vk.updates.on('message_event', async (context: any, next: any) => { 
 	//const data = await Book_Random_String('./src/book/tom1-7.txt')
 	//context.answer({type: 'show_snackbar', text: `🔔 ${data.slice(0,80)}`})
 	return next();
-})
+})*/
 vk.updates.start().then(() => {
-	console.log('LongPool server up!')
+	console.log('Бот успешно запущен и готов к эксплуатации!')
 }).catch(console.log);
