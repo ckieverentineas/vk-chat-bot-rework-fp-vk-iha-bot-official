@@ -12,7 +12,7 @@ import { InitGameRoutes } from './engine/init';
 import { send } from 'process';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { env } from 'process';
-import { Engine_Answer, Sentence_Corrector, User_Ignore, User_Login, User_Registration, User_ignore_Check, Word_Corrector, deleteDuplicate } from './engine/helper';
+import { Engine_Answer, User_Registration, User_ignore_Check } from './engine/helper';
 const natural = require('natural');
 const RussianNouns = require('russian-nouns-js');
 const rne = new RussianNouns.Engine(); //Адская махина склонений

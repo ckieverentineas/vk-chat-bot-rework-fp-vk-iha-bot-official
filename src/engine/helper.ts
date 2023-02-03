@@ -6,6 +6,7 @@ import { Message_Education_Module } from "./parser";
 import prisma from "../module/prisma";
 const Fuse = require("fuse.js")
 const translate = require('secret-package-for-my-own-use');
+const {distance, closest} = require('fastest-levenshtein')
 
 async function* Generator_Word() {
     const limiter = 10000
@@ -30,6 +31,59 @@ async function* Generator_Sentence() {
         yield nextQueryResults
         myCursor = nextQueryResults[nextQueryResults.length-1]?.id 
     }
+}
+export async function Word_Corrector_Second(word:string) {
+    const analyzer: Dictionary | null = await prisma.dictionary.findFirst({ where: { word: word } })
+    if (analyzer != null) { return word }
+    let generator_word: any = Generator_Word();
+    let clear: any = []
+    for await (const line of generator_word) {
+        let temp = [];
+        for (const i in line) { temp.push(line[i].word) } 
+        //console.log(`Итерация ${line[0]?.id}`)
+        let results = await closest(word,  temp)
+        if (results) {
+            for (const i in line) { 
+                if (results == line[i].word) { clear.push({ id: line[i].id, word: line[i].word, score: line[i].score, crdate: line[i].crdate }) }
+            }
+        }
+        await generator_word.next()
+    }
+    const options = { includeScore: true, location: 2, threshold: 0.5, distance: 1, ignoreFieldNorm: true, keys: ['word'] }
+    const myIndex = await Fuse.createIndex(options.keys, clear)
+    const fuse = new Fuse(clear, options, myIndex)
+    const finders = await fuse.search(word)
+    const finder: any = []
+    for (const i in finders) { if (finders[i].score <= 0.9 && finders[i].score == finders[0].score) { await finder.push(finders[i].item) } }
+    //console.log(`слов после ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
+    return await finder?.length >= 1 ? await finder[0]?.word : null
+}
+export async function Sentence_Corrector_Second(word:string) {
+	const analyzer: Answer | null = await prisma.answer.findFirst({ where: { qestion: word } })
+	if (analyzer != null) { return word }
+    let generator_sentence: any = Generator_Sentence();
+    let clear: any = []
+    for await (const line of generator_sentence) {
+        let temp = [];
+        for (const i in line) { temp.push(line[i].qestion) } 
+        //console.log(`Итерация ${line[0]?.id}`)
+        let results = await closest(word,  temp)
+        if (results) {
+            for (const i in line) { 
+                if (results == line[i].qestion) { clear.push({ qestion: line[i].qestion, answer: line[i].answer })}
+            }
+        }
+        await generator_sentence.next()
+    }
+    const options = { includeScore: true, location: 2, threshold: 0.5, distance: 3, keys: ['qestion'] }
+    const myIndex = await Fuse.createIndex(options.keys, clear)
+    const fuse = new Fuse(clear, options, myIndex)
+    const finders = await fuse.search(word)
+    const finder: any = []
+    for (const i in finders) { if (finders[i].score <= 0.9 && finders[i].score == finders[0].score) { finder.push(finders[i].item) } }
+    if (finders.length >= 1) {
+        return await finder?.length > 1 ? finder[randomInt(0, finder.length)] : finder[0]
+    } else { return null}
 }
 export async function Word_Corrector(word:string) {
 	const analyzer: Dictionary | null = await prisma.dictionary.findFirst({ where: { word: word } })
@@ -176,7 +230,7 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
             continue
         }
         //если его нет в базе данных, тогда надо поискать нечетко
-        const sentence_corrected = await Sentence_Corrector(sentence[stce])
+        const sentence_corrected = await Sentence_Corrector_Second(sentence[stce])
         if (sentence_corrected) { 
             ans.push({correct_text: sentence_corrected.qestion, result_text: sentence_corrected.answer, type: "Вопрос-Ответ С коррекцией"})
             continue
@@ -196,7 +250,7 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
                 word_sel = word_check.word
             } else {
                 //иначе правим ошибки
-                const word: string | null = await Word_Corrector(word_input)
+                const word: string | null = await Word_Corrector_Second(word_input)
                 if (word) { word_sel = word } else { continue }
             }
             const get_id_word: Dictionary | null = await prisma.dictionary.findFirst({ where: { word: word_sel} })
