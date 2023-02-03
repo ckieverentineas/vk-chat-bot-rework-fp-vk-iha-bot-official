@@ -1,15 +1,11 @@
-import { VK, Keyboard, IMessageContextSendOptions, ContextDefaultState, MessageContext, VKAppPayloadContext, KeyboardBuilder } from 'vk-io';
+import { VK } from 'vk-io';
 import { HearManager } from '@vk-io/hear';
-import { Answer, Couple, Dictionary, PrismaClient } from '@prisma/client'
 import {
     QuestionManager,
     IQuestionMessageContext
 } from 'vk-io-question';
-import { randomInt } from 'crypto';
-import { timeStamp } from 'console';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { send } from 'process';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { env } from 'process';
 import { Engine_Answer, User_Registration, User_ignore_Check } from './engine/helper';
@@ -21,8 +17,8 @@ dotenv.config()
 export const token: string = String(process.env.token)
 export const root: number = Number(process.env.root) //root user
 export const bot_id: number = Number(process.env.bot_id) //root user
-export const chat_id: number = Number(process.env.chat_id) //chat for logs
-export const group_id: number = Number(process.env.group_id)//clear chat group
+//export const chat_id: number = Number(process.env.chat_id) //chat for logs
+//export const group_id: number = Number(process.env.group_id)//clear chat group
 export const timer_text = { answerTimeLimit: 300_000 } // ожидать пять минут
 export const answerTimeLimit = 300_000 // ожидать пять минут
 //авторизация

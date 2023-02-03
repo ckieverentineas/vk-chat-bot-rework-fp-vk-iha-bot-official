@@ -1,6 +1,5 @@
 import { Answer, Dictionary } from "@prisma/client";
 import { tokenizer, tokenizer_sentence, vk } from "..";
-import { NounInflector } from "natural";
 import { randomInt } from "crypto";
 import { Message_Education_Module } from "./parser";
 import prisma from "../module/prisma";

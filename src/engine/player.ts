@@ -1,12 +1,7 @@
-import { PrismaClient, User } from "@prisma/client";
+import { User } from "@prisma/client";
 import { HearManager } from "@vk-io/hear";
-import { randomInt } from "crypto";
-import { send } from "process";
-import { Attachment, Context, Keyboard, KeyboardBuilder, PhotoAttachment } from "vk-io";
 import { IQuestionMessageContext } from "vk-io-question";
-import * as xlsx from 'xlsx';
-
-import { answerTimeLimit, chat_id, root, timer_text, tokenizer, tokenizer_sentence, vk } from '../index';
+import { root } from '../index';
 import { readDir, MultipleReader, MultipleReaderDictionary, MultipleReaderQuestion, MultipleReaderQuestionMod } from "./parser";
 import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration, Answer_Duplicate_Clear } from './helper';
 import prisma from "../module/prisma";
