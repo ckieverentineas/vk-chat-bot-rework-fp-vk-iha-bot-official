@@ -1,8 +1,9 @@
 import { Answer, Dictionary } from "@prisma/client";
-import { prisma, tokenizer, tokenizer_sentence, vk } from "..";
+import { tokenizer, tokenizer_sentence, vk } from "..";
 import { NounInflector } from "natural";
 import { randomInt } from "crypto";
 import { Message_Education_Module } from "./parser";
+import prisma from "../module/prisma";
 const Fuse = require("fuse.js")
 const translate = require('secret-package-for-my-own-use');
 
@@ -63,6 +64,28 @@ export async function Sentence_Corrector(word:string) {
     await clear.sort(function(a:any, b:any) {return a.score - b.score}).slice(0, 10)
     //console.log(`текст после ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
     return await clear ? clear.length > 1 ? clear[randomInt(0, clear.length)].item : clear[0]?.item : null
+}
+export async function Answer_Duplicate_Clear(context: any) {
+	const analyzer: Answer | null = await prisma.answer.findFirst({})
+	if (!analyzer) { return context.send(`Удалять нечего! База пуста`) }
+    let generator_sentence: any = Generator_Sentence();
+    let counter: number = 0
+    for await (const line of generator_sentence) {
+        console.log(`Итерация ${line[0]?.id}`)
+        for (const i in line) {
+            const data_check: Answer[] | null = await prisma.answer.findMany({where: { qestion: line[i].qestion, answer: line[i].answer }})
+            if (data_check.length > 1) {
+                for (let i = 1; i < data_check.length; i++) {
+                    const deletes = await prisma.answer.delete({ where: { id: data_check[i].id }})
+                    if (deletes) { console.log(`Успешно удален вопрос-ответ: ${deletes.id} ${deletes.qestion} >> ${deletes.answer}`) }
+                    counter++
+                }
+            }
+        }
+        await generator_sentence.next()
+    }
+    const counters = await prisma.answer.count({})
+    await context.send(`Очищено дубликатов: ${counter}. Осталось: ${counters} вопрос-ответов.`)
 }
 export async function deleteDuplicate(a: any){a=a.toString().replace(/ /g,",");a=a.replace(/[ ]/g,"").split(",");for(var b: any =[],c=0;c<a.length;c++)-1==b.indexOf(a[c])&&b.push(a[c]);b=b.join(", ");return b=b.replace(/,/g," ")};
 

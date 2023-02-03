@@ -6,9 +6,10 @@ import { Attachment, Context, Keyboard, KeyboardBuilder, PhotoAttachment } from 
 import { IQuestionMessageContext } from "vk-io-question";
 import * as xlsx from 'xlsx';
 
-import { answerTimeLimit, chat_id, prisma, root, timer_text, tokenizer, tokenizer_sentence, vk } from '../index';
+import { answerTimeLimit, chat_id, root, timer_text, tokenizer, tokenizer_sentence, vk } from '../index';
 import { readDir, MultipleReader, MultipleReaderDictionary, MultipleReaderQuestion, MultipleReaderQuestionMod } from "./parser";
-import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration } from './helper';
+import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration, Answer_Duplicate_Clear } from './helper';
+import prisma from "../module/prisma";
 
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -114,6 +115,14 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             if (user) {
                 await context.send(` 👤 Имя: @id${user.idvk}(${info.first_name}): \n\n 💳 Порядковый номер: ${user.id} \n 🎥 Кремлевский номер: ${user.idvk} \n ⚠ Получено предупреждений: ${user.warning}/3 \n ⚰ Дата резервации: ${user.crdate} \n ⛓ Статус: ${user.ignore ? 'В стоп-листе' : 'Законопослушны'}`)
             }
+        }
+    })
+    hearManager.hear(/!дубли/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            const counter = await prisma.answer.count({})
+            await context.send(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов.`)
+            console.log(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов.`)
+            await Answer_Duplicate_Clear(context)
         }
     })
 }

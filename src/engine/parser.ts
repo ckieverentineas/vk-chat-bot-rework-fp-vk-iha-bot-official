@@ -1,9 +1,10 @@
-import { prisma, tokenizer, tokenizer_sentence } from "..";
+import { tokenizer, tokenizer_sentence } from "..";
 import { readFileSync, promises as fsPromises } from 'fs'
 import { COPYFILE_EXCL } from "constants";
 import { readFile, writeFile, mkdir, FileHandle } from 'fs/promises';
 import { join } from "path";
 import { promises as fs } from 'fs'
+import prisma from "../module/prisma";
 
 async function Book_Random_String(filename: string) {
     try {

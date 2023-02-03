@@ -30,7 +30,6 @@ export const vk = new VK({ token: token, /*pollingGroupId: group_id,*/ apiMode: 
 //инициализация
 const questionManager = new QuestionManager();
 const hearManager = new HearManager<IQuestionMessageContext>();
-export const prisma = new PrismaClient()
 
 export const tokenizer = new natural.AggressiveTokenizerRu()
 export const tokenizer_sentence = new natural.SentenceTokenizer()
