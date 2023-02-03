@@ -10,7 +10,7 @@ const translate = require('secret-package-for-my-own-use');
 async function* Generator_Word() {
     const limiter = 10000
     const firstQueryResults: Dictionary[] | null = await prisma.dictionary.findMany({ take: limiter, orderBy: { id: 'asc' } })
-    const max: Dictionary | null = await prisma.dictionary.findFirst({ take: limiter, orderBy: { id: 'desc' } })
+    const max: Dictionary | null = await prisma.dictionary.findFirst({ orderBy: { id: 'desc' } })
     yield firstQueryResults
     let myCursor: number | undefined = firstQueryResults[firstQueryResults?.length-1]?.id
     while (myCursor != null && max != null && myCursor <= max.id && myCursor != undefined) {
@@ -22,7 +22,7 @@ async function* Generator_Word() {
 async function* Generator_Sentence() {
     const limiter = 10000
     const firstQueryResults: Answer[] | null = await prisma.answer.findMany({ take: limiter, orderBy: { id: 'asc' } })
-    const max: Answer | null = await prisma.answer.findFirst({ take: limiter, orderBy: { id: 'desc' } })
+    const max: Answer | null = await prisma.answer.findFirst({ orderBy: { id: 'desc' } })
     yield firstQueryResults
     let myCursor: number | undefined | null = firstQueryResults[firstQueryResults.length-1]?.id || undefined
     while (myCursor && max != null && myCursor <= max.id) {
@@ -38,7 +38,8 @@ export async function Word_Corrector(word:string) {
     const options = { includeScore: true, location: 2, threshold: 0.5, distance: 1, ignoreFieldNorm: true, keys: ['word'] }
     let clear: any = []
     for await (const line of generator_word) {
-        const fuse = new Fuse(line, options)
+        const myIndex = await Fuse.createIndex(options.keys, line)
+        const fuse = new Fuse(line, options, myIndex)
         const finder = await fuse.search(word)
         for (const i in finder) { if (finder[i].score < 0.5) { clear.push(finder[i]) } }
         await generator_word.next()
@@ -55,7 +56,9 @@ export async function Sentence_Corrector(word:string) {
     const options = { includeScore: true, location: 2, threshold: 0.5, distance: 3, keys: ['qestion'] }
     let clear: any = []
     for await (const line of generator_sentence) {
-        const fuse = new Fuse(line, options)
+        //console.log(`Итерация ${line[0]?.id}`)
+        const myIndex = await Fuse.createIndex(options.keys, line)
+        const fuse = new Fuse(line, options, myIndex)
         const finder = await fuse.search(word)
         for (const i in finder) { if (finder[i].score < 0.5) { clear.push(finder[i]) } }
         await generator_sentence.next()
@@ -159,6 +162,7 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
 	const data_old = Date.now()
 	const sentence: Array<string> = tokenizer_sentence.tokenize(context.text.toLowerCase())
 	let ans: any = []
+    const generator_off = false
 	for (const stce in sentence) {
         await context.setActivity();
         //берем предложение
@@ -177,6 +181,7 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
             ans.push({correct_text: sentence_corrected.qestion, result_text: sentence_corrected.answer, type: "Вопрос-Ответ С коррекцией"})
             continue
         }
+        if (generator_off) { continue}
         //Если нифига нет, тогда давайте сами строить, фигли
         const word_list = tokenizer.tokenize(sentence_sel)
         let sentence_build = ''
@@ -235,5 +240,6 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
             console.log(`Проблема отправки сообщения в чат: ${e}`)
         }
     }	
+    if (generator_off) { return }
     await Message_Education_Module(context)
 }

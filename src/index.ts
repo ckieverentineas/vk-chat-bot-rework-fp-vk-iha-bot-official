@@ -57,16 +57,19 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			if ((context.hasReplyMessage && context.replyMessage.senderId != bot_id) || context.forwards.length > 1) {
 				return await next();
 			} else {
-				const data: Array<string> | null = await context.text.match(/\[id(\d+)\|+([аА-яЯaA-zZ -_]+)\]|\[id(\d+)\|@([аА-яЯaA-zZ -_]+)\]*/g)
+				const data: any = await context.text.match(/\[id(\d+)\|+([аА-яЯaA-zZ -_]+)\]|\[id(\d+)\|@([аА-яЯaA-zZ -_]+)\]|\[club(\d+)\|@([аА-яЯaA-zZ -_]+)\]*/g)
 				//console.log(JSON.stringify(data))
 				if (data && data.length >= 1) {
 					let finder = false
 					for (const i in data) {
-						const data_idvk = data[i].match(/\[id(\d+)\]*/g)
-						const data_name = data[i].match(/\[*([аА-яЯaA-zZ -_]+)\]|\[*@([аА-яЯaA-zZ -_]+$)\]*/g)
-						const idvk = Number(data_idvk?.[0].replace("[id", ""))
-						const name = data_name?.[0].replace("]", "").replace("@", "")
+						const data_idvk = await data[i].match(/\[id(\d+)\]*|\[club(\d+)\]*/g)
+						const data_name = await data[i].match(/\[*([аА-яЯaA-zZ -_]+)\]|\[*@([аА-яЯaA-zZ -_]+$)\]*/g)
+						const idvk = Number(await data_idvk?.[0].replace("[id", "").replace("[club", ""))
+						const name = await data_name?.[0].replace("]", "").replace("@", "")
+						await context.send(`${data_idvk} ${data_name}`)
+						//console.log(`${idvk} ${name}`)
 						if (idvk == bot_id) {
+							//console.log('Check')
 							finder = true
 							context.text = `${name} ${context.text}`
 						}
