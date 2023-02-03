@@ -66,7 +66,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 						const data_name = await data[i].match(/\[*([аА-яЯaA-zZ -_]+)\]|\[*@([аА-яЯaA-zZ -_]+$)\]*/g)
 						const idvk = Number(await data_idvk?.[0].replace("[id", "").replace("[club", ""))
 						const name = await data_name?.[0].replace("]", "").replace("@", "")
-						await context.send(`${data_idvk} ${data_name}`)
+						//await context.send(`${data_idvk} ${data_name}`)
 						//console.log(`${idvk} ${name}`)
 						if (idvk == bot_id) {
 							//console.log('Check')
