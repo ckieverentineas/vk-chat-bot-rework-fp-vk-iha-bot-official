@@ -75,7 +75,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
 		if (context.isChat) {
 			await context.loadMessagePayload();
-			if ((context.forwards[0].senderId != bot_id) || context.forwards.length > 1) {
+			if ((context?.forwards[0]?.senderId != bot_id) || context?.forwards?.length > 1) {
 				return await next();
 			} else {
 				const data = context.text.match(/\[id(\d+)\|([аА-яЯaA-zZ -_]+)\]|\[club(\d+)\|([аА-яЯaA-zZ -_]+)\]/g)
