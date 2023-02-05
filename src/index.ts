@@ -9,6 +9,7 @@ import { InitGameRoutes } from './engine/init';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { env } from 'process';
 import { Engine_Answer, User_Registration, User_ignore_Check } from './engine/helper';
+import prisma from './module/prisma';
 const natural = require('natural');
 const RussianNouns = require('russian-nouns-js');
 const rne = new RussianNouns.Engine(); //Адская махина склонений
@@ -29,12 +30,36 @@ const hearManager = new HearManager<IQuestionMessageContext>();
 
 export const tokenizer = new natural.AggressiveTokenizerRu()
 export const tokenizer_sentence = new natural.SentenceTokenizer()
-/*prisma.$use(async (params, next) => {
-	console.log('This is middleware!')
-	// Modify or interrogate params here
-	console.log(params)
-	return next(params)
-})*/
+let max_sel = 0
+let max_create = 0
+let sum_sel = 0
+let sum_create = 0
+let count_sel = 0
+let count_create = 0
+let count_temp = 0
+prisma.$use(async (params, next) => {
+	const before = Date.now()
+	const result = await next(params)
+	const after = Date.now()
+	const temp = after - before
+	if (params.action == 'create') { sum_create += temp; count_create++}
+	if (params.action == 'findMany') { sum_sel += temp; count_sel++}
+	if (params.action == 'create' && max_create < temp) { max_create = temp}
+	if (params.action == 'findMany' && max_sel < temp) { max_sel = temp}
+	count_temp++
+	//console.log(`Query ${params.model}.${params.action} took: ${temp} ms`)
+	
+	/*if (count_temp > 1000) {
+		await vk.api.messages.send({
+			peer_id: root,
+			random_id: 0,
+			message: `findMany: sum-${sum_sel}ms count-${count_sel} max-${max_sel}ms avg-${sum_sel/count_sel}ms \n create: sum-${sum_create}ms count-${count_create} max-${max_create}ms avg-${sum_create/count_create}ms`
+		})
+		count_temp = 0
+		console.log(`findMany: sum-${sum_sel}ms count-${count_sel} max-${max_sel}ms avg-${sum_sel/count_sel}ms \n create: sum-${sum_create}ms count-${count_create} max-${max_create}ms avg-${sum_create/count_create}ms`)
+	}*/
+	return result
+})
 
 //настройка
 vk.updates.use(questionManager.middleware);
@@ -50,7 +75,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
 		if (context.isChat) {
 			await context.loadMessagePayload();
-			if ((context.hasReplyMessage && context.replyMessage.senderId != bot_id) || context.forwards.length > 1) {
+			if ((context.forwards[0].senderId != bot_id) || context.forwards.length > 1) {
 				return await next();
 			} else {
 				const data = context.text.match(/\[id(\d+)\|([аА-яЯaA-zZ -_]+)\]|\[club(\d+)\|([аА-яЯaA-zZ -_]+)\]/g)
