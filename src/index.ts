@@ -42,22 +42,22 @@ prisma.$use(async (params, next) => {
 	const result = await next(params)
 	const after = Date.now()
 	const temp = after - before
-	if (params.action == 'create') { sum_create += temp; count_create++}
-	if (params.action == 'findMany') { sum_sel += temp; count_sel++}
+	if (params.action == 'create') { sum_create += temp; count_create++; console.log(`Query ${params.model}.${params.action} took: ${temp} ms`)}
+	if (params.action == 'update') { sum_sel += temp; count_sel++; console.log(`Query ${params.model}.${params.action} took: ${temp} ms`)}
 	if (params.action == 'create' && max_create < temp) { max_create = temp}
-	if (params.action == 'findMany' && max_sel < temp) { max_sel = temp}
+	if (params.action == 'update' && max_sel < temp) { max_sel = temp}
 	count_temp++
 	//console.log(`Query ${params.model}.${params.action} took: ${temp} ms`)
 	
-	/*if (count_temp > 1000) {
-		await vk.api.messages.send({
+	if (count_temp > 100) {
+		/*await vk.api.messages.send({
 			peer_id: root,
 			random_id: 0,
 			message: `findMany: sum-${sum_sel}ms count-${count_sel} max-${max_sel}ms avg-${sum_sel/count_sel}ms \n create: sum-${sum_create}ms count-${count_create} max-${max_create}ms avg-${sum_create/count_create}ms`
-		})
+		})*/
 		count_temp = 0
-		console.log(`findMany: sum-${sum_sel}ms count-${count_sel} max-${max_sel}ms avg-${sum_sel/count_sel}ms \n create: sum-${sum_create}ms count-${count_create} max-${max_create}ms avg-${sum_create/count_create}ms`)
-	}*/
+		//console.log(`update: sum-${sum_sel}ms count-${count_sel} max-${max_sel}ms avg-${sum_sel/count_sel}ms \n create: sum-${sum_create}ms count-${count_create} max-${max_create}ms avg-${sum_create/count_create}ms`)
+	}
 	return result
 })
 
@@ -74,8 +74,15 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 	const regtrg = await User_Registration(context)
 	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
 		if (context.isChat) {
+			const arr: Array<string> = await tokenizer.tokenize(context.text)
+			//console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ arr", arr.length)
+			if (arr && (arr.length < 2 || arr.length > 50)) {
+				return await next();
+			}
 			await context.loadMessagePayload();
-			if ((context?.forwards[0]?.senderId != bot_id) || context?.forwards?.length > 1) {
+			//console.log(context?.forwards)
+			if ((await context.forwards.length == 1 && await context.forwards[0].senderId != bot_id) || (await context.forwards.length > 1)) {
+				//console.log("🚀 ~ file: index.ts:84 ~ vk.updates.on ~ context", context)
 				return await next();
 			} else {
 				const data = context.text.match(/\[id(\d+)\|([аА-яЯaA-zZ -_]+)\]|\[club(\d+)\|([аА-яЯaA-zZ -_]+)\]/g)
