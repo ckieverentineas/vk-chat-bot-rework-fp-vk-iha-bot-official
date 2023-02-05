@@ -1,8 +1,9 @@
 import { Answer, Dictionary } from "@prisma/client";
-import { tokenizer, tokenizer_sentence, vk } from "..";
+import { root, tokenizer, tokenizer_sentence, vk } from "..";
 import { randomInt } from "crypto";
 import { Message_Education_Module } from "./parser";
 import prisma from "../module/prisma";
+const getSlug  = require('speakingurl');
 const Fuse = require("fuse.js")
 const translate = require('secret-package-for-my-own-use');
 const {distance, closest} = require('fastest-levenshtein')
@@ -20,7 +21,7 @@ async function* Generator_Word() {
     }
 }
 async function* Generator_Sentence() {
-    const limiter = 10000
+    const limiter = 100000
     const firstQueryResults: Answer[] | null = await prisma.answer.findMany({ take: limiter, orderBy: { id: 'asc' } })
     const max: Answer | null = await prisma.answer.findFirst({ orderBy: { id: 'desc' } })
     yield firstQueryResults
@@ -125,6 +126,61 @@ export async function Answer_Duplicate_Clear(context: any) {
 	const analyzer: Answer | null = await prisma.answer.findFirst({})
 	if (!analyzer) { return context.send(`Удалять нечего! База пуста`) }
     let generator_sentence: any = Generator_Sentence();
+    let counter_translit: number = 0
+    let counter_delete: number = 0
+    for await (const line of generator_sentence) {
+        console.log(`Итерация ${line[0]?.id}`)
+        for (const i in line) {
+            try {
+                const data_check: Answer | null = await prisma.answer.findFirst({where: { id: line[i].id }})
+                if (data_check) {
+                    const qestion = getSlug(data_check.qestion, { separator: ' ', mark: true, lang: 'ru', uricNoSlash: true });
+                    const answer = getSlug(data_check.answer, { separator: ' ', mark: true, lang: 'ru', uricNoSlash: true });
+                    if (qestion.length > 0 && answer.length > 0) {
+                        try {
+                            const data_check_again: Answer | null = await prisma.answer.findFirst({ where: { qestion: qestion, answer: answer } })
+                            if (data_check_again) {
+                                if (data_check_again.id != line[i].id) {
+                                    const data_delete: Answer | null = await prisma.answer.delete({ where: {id: data_check.id} })
+                                    if (data_delete) { console.log(`\nУдален дубликат вопрос-ответ ${data_delete.id}: \n ${qestion} >> ${answer} \n ${data_delete.qestion} >> ${data_delete.answer}\n`); counter_delete++ }
+                                } else {
+                                    if (data_check_again.qestion != qestion && data_check_again.answer != answer) {
+                                        const data_update: Answer | null = await prisma.answer.update({where: {id: data_check.id}, data: { qestion: qestion, answer: answer }})
+                                        if (data_update) { 
+                                            console.log(`\nВторично транслирован вопрос-ответ ${data_update.id}: \n ${line[i].qestion} >> ${line[i].answer} \n ${data_update.qestion} >> ${data_update.answer}\n`); 
+                                            counter_translit++ 
+                                        }
+                                    }
+                                }
+                            } else {
+                                const data_update: Answer | null = await prisma.answer.update({where: {id: data_check.id}, data: { qestion: qestion, answer: answer }})
+                                if (data_update) {
+                                    //console.log(`\nУспешно транслирован вопрос-ответ ${data_update.id}: \n ${line[i].qestion} >> ${line[i].answer} \n ${data_update.qestion} >> ${data_update.answer}\n`); 
+                                    counter_translit++
+                                }
+                            }
+                        } catch {
+                            console.log(`Нельзя создать дубликат`)
+                        }
+                    } else {
+                        const data_delete: Answer | null = await prisma.answer.delete({ where: {id: data_check.id} })
+                        if (data_delete) { console.log(`\nУдален пустой вопрос-ответ ${data_delete.id}: \n ${qestion} >> ${answer} \n ${data_delete.qestion} >> ${data_delete.answer}\n`); counter_delete++ }
+                    }
+                    
+                }
+            } catch (e) {
+                await vk.api.messages.send({
+                    peer_id: root,
+                    random_id: 0,
+                    message: `База данных не вывезла чистку для вопрос-ответа ${line[i].id}: ${e}`
+                })
+            }
+            
+        }
+        await generator_sentence.next()
+    }
+    const counters1 = await prisma.answer.count({})
+    await context.send(`Стадия очистки I: Транслировано ${counter_translit} из ${counters1} вопрос-ответов. Удалено ${counter_delete} пусторылых`)
     let counter: number = 0
     for await (const line of generator_sentence) {
         console.log(`Итерация ${line[0]?.id}`)
@@ -141,7 +197,7 @@ export async function Answer_Duplicate_Clear(context: any) {
         await generator_sentence.next()
     }
     const counters = await prisma.answer.count({})
-    await context.send(`Очищено дубликатов: ${counter}. Осталось: ${counters} вопрос-ответов.`)
+    await context.send(`Стадия очистки II: Очищено дубликатов: ${counter}. Осталось вопрос-ответов: ${counters} из ${counters1}.`)
 }
 export async function deleteDuplicate(a: any){a=a.toString().replace(/ /g,",");a=a.replace(/[ ]/g,"").split(",");for(var b: any =[],c=0;c<a.length;c++)-1==b.indexOf(a[c])&&b.push(a[c]);b=b.join(", ");return b=b.replace(/,/g," ")};
 
@@ -172,7 +228,7 @@ export async function User_Login(context: any) {
         return true
     } else {
         if (user.memorytrg == false) {
-            await context.send(`🛡 Уведомление от системы памяти: \n ${user.last.length != '' ? `Вы мне уже писали ранее: ${user.last}` : '' } \n ${user.lastlast.length != '' ? `Как-то невзначай отправляли: ${user.lastlast}` : '' }.`)
+            //await context.send(`🛡 Уведомление от системы памяти: \n ${user.last.length != '' ? `Вы мне уже писали ранее: ${user.last}` : '' } \n ${user.lastlast.length != '' ? `Как-то невзначай отправляли: ${user.lastlast}` : '' }.`)
             await prisma.user.update({ where: { idvk: context.senderId }, data: { memorytrg: true } })
         }
         
