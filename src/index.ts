@@ -43,9 +43,9 @@ prisma.$use(async (params, next) => {
 	const after = Date.now()
 	const temp = after - before
 	if (params.action == 'create') { sum_create += temp; count_create++; console.log(`Query ${params.model}.${params.action} took: ${temp} ms`)}
-	if (params.action == 'update') { sum_sel += temp; count_sel++; console.log(`Query ${params.model}.${params.action} took: ${temp} ms`)}
+	if (params.action == 'delete') { sum_sel += temp; count_sel++; console.log(`Query ${params.model}.${params.action} took: ${temp} ms`)}
 	if (params.action == 'create' && max_create < temp) { max_create = temp}
-	if (params.action == 'update' && max_sel < temp) { max_sel = temp}
+	if (params.action == 'delete' && max_sel < temp) { max_sel = temp}
 	count_temp++
 	//console.log(`Query ${params.model}.${params.action} took: ${temp} ms`)
 	
@@ -74,17 +74,23 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 	const regtrg = await User_Registration(context)
 	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
 		if (context.isChat) {
+			await context.loadMessagePayload();
+			//console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ context", context)
 			const arr: Array<string> = await tokenizer.tokenize(context.text)
-			//console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ arr", arr.length)
-			if (arr && (arr.length < 2 || arr.length > 50)) {
+			if (arr && (arr.length < 2 || arr.length > 50) && !context.replyMessage) {
+				//console.log("🚀 ~ file: index.ts:81 ~ vk.updates.on ~ context.forwards", context.forwards)
+				//console.log('Ответов нет, длина не соотвествует')
 				return await next();
 			}
-			await context.loadMessagePayload();
+			//console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ arr", arr.length)
+			
 			//console.log(context?.forwards)
-			if ((await context.forwards.length == 1 && await context.forwards[0].senderId != bot_id) || (await context.forwards.length > 1)) {
+			if ((context.replyMessage && context.replyMessage.senderId != bot_id) || (context.forwards > 1)) {
+				//console.log('Ответ есть, но нее мне')
 				//console.log("🚀 ~ file: index.ts:84 ~ vk.updates.on ~ context", context)
 				return await next();
 			} else {
+				//console.log('Упоминания есть')
 				const data = context.text.match(/\[id(\d+)\|([аА-яЯaA-zZ -_]+)\]|\[club(\d+)\|([аА-яЯaA-zZ -_]+)\]/g)
 				//console.log(JSON.stringify(data))
 				if (data && data.length >= 1) {
@@ -103,6 +109,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 						}
 					}
 					if (!finder) { 
+						//console.log('Упомянули не меня')
 						return await next();
 					}
 				}
