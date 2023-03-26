@@ -21,23 +21,17 @@
     "@vk-io/hear": "^1.1.0",
     "nodemon": "^2.0.15",
     "prisma": "^3.12.0",
-    "rimraf": "^3.0.2",
     "ts-node": "^10.7.0",
     "ts-node-dev": "^1.1.8",
-    "ts-xlsx": "^0.0.11",
     "typescript": "^4.6.3",
     "vk-io": "^4.5.2",
-    "vk-io-question": "^3.1.1",
-    "xlsx": "^0.18.5"
+    "vk-io-question": "^3.1.1"
   },
   "dependencies": {
-    "cyrillic-to-translit-js": "^3.2.1",
     "dotenv": "^16.0.3",
     "fastest-levenshtein": "^1.0.16",
     "fuse.js": "^6.6.2",
-    "jimp": "^0.16.2",
     "natural": "^6.1.4",
-    "russian-nouns-js": "^1.3.1",
     "secret-package-for-my-own-use": "^1.4.2",
     "speakingurl": "^14.0.1"
   }

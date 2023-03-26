@@ -1,5 +1,5 @@
 import { Answer, Dictionary } from "@prisma/client";
-import { root, tokenizer, tokenizer_sentence, vk } from "..";
+import { bot_id, root, tokenizer, tokenizer_sentence, vk } from "..";
 import { randomInt } from "crypto";
 import { Message_Education_Module } from "./parser";
 import prisma from "../module/prisma";
@@ -131,11 +131,18 @@ export async function Answer_Duplicate_Clear(context: any) {
     for await (const line of generator_sentence) {
         console.log(`Итерация ${line[0]?.id}`)
         for (const i in line) {
+            if (line[0]?.id ==  line[i]?.id) { console.log(`Итерация ${line[0]?.id}: ${i}`)}
+            if (line[line.length]?.id == line[i]?.id) { console.log(`Итерация ${line[line.length]?.id}: ${i}`)}
             try {
                 const data_check: Answer | null = await prisma.answer.findFirst({where: { id: line[i].id }})
                 if (data_check) {
-                    const qestion = getSlug(data_check.qestion, { separator: ' ', mark: true, lang: 'ru', uricNoSlash: true });
-                    const answer = getSlug(data_check.answer, { separator: ' ', mark: true, lang: 'ru', uricNoSlash: true });
+                    if (data_check.answer.includes('https:') || data_check.answer.includes('http:')) { 
+                        const data_delete: Answer | null = await prisma.answer.delete({ where: {id: data_check.id} })
+                        if (data_delete) { console.log(`\nУдален ссылочный вопрос-ответ ${data_delete.id}: \n ${data_check.qestion} >> ${data_check.answer}\n`); counter_delete++ }
+                        continue
+                    }
+                    const qestion = getSlug(data_check.qestion, { separator: ' ', mark: true, lang: 'ru', uricNoSlash: true }).replace('- ', ' ').trim();
+                    const answer = getSlug(data_check.answer, { separator: ' ', mark: true, lang: 'ru', uricNoSlash: true }).replace('- ', ' ').trim();
                     if (qestion.length > 0 && answer.length > 0) {
                         try {
                             const data_check_again: Answer | null = await prisma.answer.findFirst({ where: { qestion: qestion, answer: answer } })
@@ -351,4 +358,51 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
     }	
     if (generator_off) { return }
     await Message_Education_Module(context)
+}
+export async function Call_Me_Controller(context: any) {
+    try {
+        await context.loadMessagePayload();
+    } catch (e) {
+        console.log(`ВК послал нас нафиг, так и не подгрузив данные о сообщениях: ${e}`)
+    }
+    //console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ context", context)
+    const arr: Array<string> = await tokenizer.tokenize(context.text)
+    if (arr && (arr.length < 3 || arr.length > 50) && !context.replyMessage) {
+        //console.log("🚀 ~ file: index.ts:81 ~ vk.updates.on ~ context.forwards", context.forwards)
+        //console.log('Ответов нет, длина не соотвествует')
+        return false;
+    }
+    //console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ arr", arr.length)
+    
+    //console.log(context?.forwards)
+    if ((context.replyMessage && context.replyMessage.senderId != bot_id) || (context.forwards > 1)) {
+        //console.log('Ответ есть, но нее мне')
+        //console.log("🚀 ~ file: index.ts:84 ~ vk.updates.on ~ context", context)
+        return false;
+    } else {
+        //console.log('Упоминания есть')
+        const data = context.text.match(/\[id(\d+)\|([аА-яЯaA-zZ -_]+)\]|\[club(\d+)\|([аА-яЯaA-zZ -_]+)\]/g)
+        //console.log(JSON.stringify(data))
+        if (data && data.length >= 1) {
+            let finder = false
+            for (const i in data) {
+                const data_idvk = data[i].match(/(\d+)\|/g)
+                const data_name = data[i].match(/\|([аА-яЯaA-zZ -_]+)/g)
+                const idvk = data_idvk.toString().replace('|', '')
+                const name = data_name.toString().replace('|', '').replace(']', '')
+                //await context.send(`${data_idvk} ${data_name}`)
+                //console.log(`${idvk} ${name}`)
+                if (idvk == bot_id) {
+                    //console.log('Check')
+                    finder = true
+                    context.text = `${name} ${context.text}`
+                }
+            }
+            if (!finder) { 
+                //console.log('Упомянули не меня')
+                return false;
+            }
+        }
+    }
+    return true
 }

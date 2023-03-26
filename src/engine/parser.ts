@@ -1,8 +1,6 @@
 import { tokenizer, tokenizer_sentence } from "..";
-import { readFileSync, promises as fsPromises } from 'fs'
+import { promises as fsPromises } from 'fs'
 import { COPYFILE_EXCL } from "constants";
-import { readFile, writeFile, mkdir, FileHandle } from 'fs/promises';
-import { join } from "path";
 import { promises as fs } from 'fs'
 import prisma from "../module/prisma";
 
@@ -42,6 +40,17 @@ async function Book_Random_String_Helper_Mod(filename: string) {
         console.log(err);
     }
 }
+/*async function name(file: string) {
+    function processData(chunk: any) {
+        console.log(`first ${chunk}`)
+        setImmediate(() => {
+            console.log(`second ${chunk}`);
+            setImmediate(() => console.log(`third ${chunk}`));
+        });
+    }
+    var stream = createReadStream(file, { encoding : 'utf8' });
+    stream.on("readable", () => processData(stream.read()));
+}*/
 async function Book_Random_Word(arr_sentence: Array<string>, context: any, name_book: string) {
     try {
         const data_old = Date.now()

@@ -115,9 +115,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!дубли/, async (context) => {
         if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
             const counter = await prisma.answer.count({})
-            await context.send(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов.`)
+            await context.send(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов. Не использовать`)
             console.log(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов.`)
-            await Answer_Duplicate_Clear(context)
+            //await Answer_Duplicate_Clear(context)
         }
     })
 }
