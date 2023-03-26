@@ -5,6 +5,7 @@ import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
 import { Call_Me_Controller, Engine_Answer, User_Registration, User_ignore_Check } from './engine/helper';
+import prisma from './module/prisma';
 const natural = require('natural');
 
 dotenv.config()
@@ -23,7 +24,7 @@ const hearManager = new HearManager<IQuestionMessageContext>();
 
 export const tokenizer = new natural.AggressiveTokenizerRu()
 export const tokenizer_sentence = new natural.SentenceTokenizer()
-/* расскоментировать если интересно наблюдать процессы поиска ответов=)
+/* раскоментировать для того, чтобы лицезреть процесс поиска ответов
 prisma.$use(async (params, next) => {
 	const before = Date.now()
 	const result = await next(params)
