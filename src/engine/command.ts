@@ -1,5 +1,6 @@
 import { HearManager } from "@vk-io/hear";
 import { IQuestionMessageContext } from "vk-io-question";
+import { root } from "..";
 const rq = require("prequest");
 export function registerCommandRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     /*hearManager.hear(/!погода/, async (context) => {

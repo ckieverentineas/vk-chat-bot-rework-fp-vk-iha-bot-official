@@ -1,10 +1,11 @@
 import { User } from "@prisma/client";
 import { HearManager } from "@vk-io/hear";
 import { IQuestionMessageContext } from "vk-io-question";
-import { root } from '../index';
+import { root, tokenizer, tokenizer_sentence } from '../index';
 import { readDir, MultipleReader, MultipleReaderDictionary, MultipleReaderQuestion, MultipleReaderQuestionMod } from "./parser";
-import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration, Answer_Duplicate_Clear } from './helper';
+import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration, Answer_Duplicate_Clear, Sleep } from './helper';
 import prisma from "../module/prisma";
+import { randomInt } from "crypto";
 
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
@@ -101,7 +102,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     })
     hearManager.hear(/!инфа/, async (context) => {
         const regtrg = await User_Registration(context)
-        if (context.isOutbox == false && context?.text != undefined && await User_ignore_Check(context)) {
+        if (context.isOutbox == false && context?.text != undefined /*&& await User_ignore_Check(context)*/) {
             if (regtrg) { await User_Ignore(context) }
             const bot_memory = await User_Login(context)
             if (!bot_memory) { return }
@@ -117,6 +118,34 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             const counter = await prisma.answer.count({})
             await context.send(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов. Не использовать`)
             console.log(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов.`)
+            //await Answer_Duplicate_Clear(context)
+        }
+    })
+    hearManager.hear(/!проверка/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            const sentence: Array<string> = tokenizer_sentence.tokenize(context.text.toLowerCase())
+            const pusher = []
+            for (const stce in sentence) {
+                //берем предложение
+                const sentence_sel: string = sentence[stce]
+                const word_list = tokenizer.tokenize(sentence_sel)
+                for (let j = 0; j < word_list.length; j++) {
+                    pusher.push( { qestion: { contains: word_list[j] } } )
+                }
+            }
+            console.log("🚀 ~ file: player.ts:128 ~ hearManager.hear ~ pusher:", pusher)
+            const counter = await prisma.answer.findMany({
+                where: {
+                    OR: pusher
+                },
+                take: 10,
+                orderBy: 
+                    [{answer: 'desc'},
+                    {qestion: 'asc'}]
+            })
+            await context.send(`Найдено на ${context.text} записей: ${counter.length}... ${JSON.stringify(counter).slice(0, 150)}`)
+            console.log(`Найдено на ${context.text} --> ${JSON.stringify(counter)}`)
+            await Sleep(randomInt(5000, 10000))
             //await Answer_Duplicate_Clear(context)
         }
     })
