@@ -4,8 +4,9 @@ import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
 import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-import { Call_Me_Controller, Call_Me_Controller_Wall, Engine_Answer, Engine_Answer_Wall, User_Registration, User_ignore_Check } from './engine/helper';
+import { Call_Me_Controller, Call_Me_Controller_Wall, Engine_Answer, Engine_Answer_Wall, User_Registration, User_Say, User_ignore_Check } from './engine/helper';
 import prisma from './module/prisma';
+import { Analyzer_New_Age } from './module/reseach';
 //import { registerCommandRoutes } from './engine/command';
 const natural = require('natural');
 
@@ -54,7 +55,13 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			const call_me_check = await Call_Me_Controller(context)
 			if (!call_me_check) { return await next() }
 		}
-		await Engine_Answer(context,regtrg)
+		if (await User_Say(context) == false) { return await next() }
+		console.log(`Обнаружено новое сообщение ${context.text} от ${context.senderId} запуск SpeedBoost генератора`)
+		const status = await Analyzer_New_Age(context)
+		if (!status) {
+			console.log(`SpeedBoost генератор не справился для ${context.text} от ${context.senderId} запуск LongDepth генератора`)
+			await Engine_Answer(context,regtrg)
+		}
 	}
 	return await next();
 })
@@ -65,14 +72,19 @@ vk1.updates.on('message_new', async (context: any, next: any) => {
 			const call_me_check = await Call_Me_Controller(context)
 			if (!call_me_check) { return await next() }
 		}
-		await Engine_Answer(context,regtrg)
+		if (await User_Say(context) == false) { return await next() }
+		console.log(`Обнаружено новое сообщение ${context.text} от ${context.senderId} запуск SpeedBoost генератора`)
+		const status = await Analyzer_New_Age(context)
+		if (!status) {
+			console.log(`SpeedBoost генератор не справился для ${context.text} от ${context.senderId} запуск LongDepth генератора`)
+			await Engine_Answer(context,regtrg)
+		}
 	}
 	return await next();
 })
 vk1.updates.on('wall_reply_new', async (context: any, next: any) => {
 	context.senderId = context.fromId
 	const regtrg = await User_Registration(context)
-	
 	if (context.fromId > 0 && context.text) {
 		const call_me_check = await Call_Me_Controller_Wall(context)
 		if (!call_me_check) { return await next() }

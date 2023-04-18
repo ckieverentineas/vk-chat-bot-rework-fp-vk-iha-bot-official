@@ -12,6 +12,7 @@ model User {
   idvk Int @unique
   last String @default(" ")
   lastlast String @default(" ")
+  say String @default(" ")
   memorytrg Boolean @default(false)
   ignore Boolean @default(false)
   warning Int @default(0)
