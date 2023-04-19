@@ -1,6 +1,9 @@
 import { tokenizer, tokenizer_sentence } from "..";
-import { WordTokenizer, JaroWinklerDistance } from "natural";
+import { WordTokenizer, JaroWinklerDistance, DamerauLevenshteinDistance } from "natural";
 import prisma from "./prisma";
+import { findBestMatch } from "string-similarity";
+import { distance as levenshteinDistance } from 'fastest-levenshtein';
+import { compareTwoStrings } from 'string-similarity';
 
 function tokenizeText(text: string): string[][] {
   const sentences: string[] = tokenizer_sentence.tokenize(text.toLowerCase());
@@ -23,48 +26,53 @@ async function* Generator_Sentence() {
     cursor = sentences[sentences.length - 1].id;
   }
 }
-
+interface Match {
+  sentence: string;
+  score: number;
+  }
+  
 function findClosestMatch(query: string, sentences: string[]): { sentence: string, query: string } | undefined {
-    // Приводим запрос и предложения к нижнему регистру
-    query = query.toLowerCase();
-    const sentencesLower = sentences.map(sentence => {
-      if (typeof sentence === "string") {
-        return sentence.toLowerCase();
-      } else {
-        return "";
-      }
-    });
+  // Приводим запрос и предложения к нижнему регистру
+  query = query.toLowerCase();
+  const sentencesLower = sentences.map(sentence => sentence.toLowerCase());
   
-    // Разбиваем запрос на отдельные слова
-    const tokenizer = new WordTokenizer();
-    const queryWords = tokenizer.tokenize(query);
+  // Разбиваем запрос на отдельные слова
+  const tokenizer = new WordTokenizer();
+  const queryWords = tokenizer.tokenize(query);
   
-    // Извлекаем контекст из запроса пользователя
-    const contextWords = queryWords;
+  // Извлекаем контекст из запроса пользователя
+  const contextWords = queryWords;
   
-    // Вычисляем схожесть между каждым предложением и запросом,
-    // используя функцию JaroWinklerDistance из модуля "natural"
-    const matches = sentencesLower.map(sentenceLower => ({
-      sentence: sentenceLower,
-      score: JaroWinklerDistance( query, sentenceLower, {} ),
-    }));
+  // Вычисляем схожесть между каждым предложением и запросом,
+  // используя функции JaroWinklerDistance, LevenshteinDistance и cosineSimilarity
+  const matches: Match[] = sentencesLower.map(sentenceLower => {
+  const jaroWinklerScore = JaroWinklerDistance(query, sentenceLower, {} );
+  const levenshteinScore = 1 / (levenshteinDistance(query, sentenceLower) + 1);
+  const cosineScore = compareTwoStrings(query, sentenceLower);
+  const score = (jaroWinklerScore + levenshteinScore + cosineScore) / 3;
   
-    // Сортируем результаты по убыванию схожести
-    matches.sort((a, b) => b.score - a.score);
+  return {
+    sentence: sentenceLower,
+    score: score
+  };
+  });
   
-    // Находим наилучшее совпадение, учитывая контекст
-    const bestMatch = matches.find(match => {
-      const matchWords = tokenizer.tokenize(match.sentence);
-      const intersection = matchWords.filter(word => contextWords.includes(word));
-      return intersection.length > 0;
-    });
+  // Сортируем результаты по убыванию схожести
+  matches.sort((a, b) => b.score - a.score);
   
-    // Если нашлось хотя бы одно совпадение, возвращаем его
-    if (bestMatch) {
-      return { sentence: bestMatch.sentence, query: query };
-    } else {
-      return undefined;
-    }
+  // Находим наилучшее совпадение, учитывая контекст
+  const bestMatch = matches.find(match => {
+  const matchWords = tokenizer.tokenize(match.sentence);
+  const intersection = matchWords.filter(word => contextWords.includes(word));
+  return intersection.length > 0;
+  });
+  
+  // Если нашлось хотя бы одно совпадение, возвращаем его
+  if (bestMatch) {
+  return { sentence: bestMatch.sentence, query };
+  } else {
+  return undefined;
+  }
   }
 
 async function processText(text: string): Promise<{ sentence: string, query: string }[]> {
@@ -120,7 +128,7 @@ async function generateBestSentences(text: string): Promise<{ sentence: string, 
     let result = ''
     if (answers.length > 0) {
         result =  answers.length == 1 ? answers.map(answer => `${answer.answer}\n\n`).join('') : answers.map(answer => `${answer.input}-->\n${answer.answer}\n\n`).join('')
-        console.log(`${answers.map(answer => `Уникальный идентификатор: ${answer.id}\nВвод пользователя: ${answer.input}\nВыбор вопроса: ${answer.qestion}\nВыбор ответа: ${answer.answer}`).join('')}\nЗатраченно времени: ${(Date.now() - data_old)/1000} сек.\n\n`)
+        console.log(`\n${answers.map(answer => `Уникальный идентификатор: ${answer.id}\nВвод пользователя: ${answer.input}\nВыбор вопроса: ${answer.qestion}\nВыбор ответа: ${answer.answer}`).join('')}\nЗатраченно времени: ${(Date.now() - data_old)/1000} сек.\n\n`)
         return result
     }
     
