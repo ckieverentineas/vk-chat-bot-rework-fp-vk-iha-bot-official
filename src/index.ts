@@ -56,8 +56,12 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			const call_me_check = await Call_Me_Controller(context)
 			if (!call_me_check) { return await next() }
 		}
+		console.log(`Обнаружено новое сообщение ${context.text} от ${context.senderId} запуск MultiBoost генератора`)
 		const ans = await Engine_Generate_Last_Age(context.text)
-		console.log("🚀 ~ file: index.ts:60 ~ vk.updates.on ~ ans:", ans)
+		if (!ans) { 
+			console.log(`MultiBoost генератор не нашел ответ на сообщение ${context.text} от ${context.senderId}`)
+		} else { context.send(ans)}
+		
 		if (await User_Say(context) == false) { return await next() }
 		console.log(`Обнаружено новое сообщение ${context.text} от ${context.senderId} запуск SpeedBoost генератора`)
 		const status = await Analyzer_New_Age(context)

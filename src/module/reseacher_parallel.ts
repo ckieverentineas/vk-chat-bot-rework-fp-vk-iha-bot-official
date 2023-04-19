@@ -99,9 +99,32 @@ async function generateBestSentences(text: string): Promise<{ sentence: string, 
     return bestSentences;
   }
   async function Engine_Generate_Last_Age(text: string) {
-    const search_all = await processText(text);
+    const data_old = Date.now()
     const search_best = await generateBestSentences(text); // измененный код
-    console.log("🚀 ~ file: reseacher_parallel.ts:103 ~ Engine_Generate_Last_Age ~ search_best:", search_best)
-  }
+    const answers = [];
+
+    for (const item of search_best) {
+        const cond = tokenizer.tokenize(item.sentence).length > 1 ? { qestion: { contains: item.sentence } } : { qestion: item.sentence }
+        const answer = await prisma.answer.findMany({
+            where: cond,
+            take: 100,
+            orderBy: 
+                [{answer: 'desc'},
+                {qestion: 'asc'}]
+        });
+        if (answer.length > 0) {
+            const randomIndex = Math.floor(Math.random() * answer.length);
+            answers.push({ id: answer[randomIndex].id, input: item.query, qestion: answer[randomIndex].qestion, answer: answer[randomIndex].answer, crdate: new Date(answer[randomIndex].crdate) });
+        }
+    }
+    let result = ''
+    if (answers.length > 0) {
+        result =  answers.length == 1 ? answers.map(answer => `${answer.answer}\n\n`).join('') : answers.map(answer => `${answer.input}-->\n${answer.answer}\n\n`).join('')
+        console.log(`${answers.map(answer => `Уникальный идентификатор: ${answer.id}\nВвод пользователя: ${answer.input}\nВыбор вопроса: ${answer.qestion}\nВыбор ответа: ${answer.answer}`).join('')}\nЗатраченно времени: ${(Date.now() - data_old)/1000} сек.\n\n`)
+        return result
+    }
+    
+    return false
+}
 
 export default Engine_Generate_Last_Age;
