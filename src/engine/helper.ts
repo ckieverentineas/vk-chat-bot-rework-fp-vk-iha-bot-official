@@ -84,43 +84,6 @@ export async function Sentence_Corrector_Second(word: string) {
         return await finder?.length > 1 ? finder[randomInt(0, finder.length)].item : finder[0].item
     } else { return null}
 }
-export async function Word_Corrector(word:string) {
-	const analyzer: Dictionary | null = await prisma.dictionary.findFirst({ where: { word: word } })
-    if (analyzer != null) { return word }
-    let generator_word: any = Generator_Word();
-    const options = { includeScore: true, location: 2, threshold: 0.5, distance: 1, ignoreFieldNorm: true, keys: ['word'] }
-    let clear: any = []
-    for await (const line of generator_word) {
-        const myIndex = await Fuse.createIndex(options.keys, line)
-        const fuse = new Fuse(line, options, myIndex)
-        const finder = await fuse.search(word)
-        for (const i in finder) { if (finder[i].score < 0.5) { clear.push(finder[i]) } }
-        await generator_word.next()
-    }
-    //console.log(`слов до ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
-    await clear.sort(function(a:any, b:any) {return a.score - b.score})
-    //console.log(`слов после ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
-    return await clear?.length >= 1 ? clear[0].item.word : null
-}
-export async function Sentence_Corrector(word:string) {
-	const analyzer: Answer | null = await prisma.answer.findFirst({ where: { qestion: word } })
-	if (analyzer != null) { return word }
-    let generator_sentence: any = Generator_Sentence();
-    const options = { includeScore: true, location: 2, threshold: 0.5, distance: 3, keys: ['qestion'] }
-    let clear: any = []
-    for await (const line of generator_sentence) {
-        //console.log(`Итерация ${line[0]?.id}`)
-        const myIndex = await Fuse.createIndex(options.keys, line)
-        const fuse = new Fuse(line, options, myIndex)
-        const finder = await fuse.search(word)
-        for (const i in finder) { if (finder[i].score < 0.5) { clear.push(finder[i]) } }
-        await generator_sentence.next()
-    }
-    //console.log(`тексто до ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
-    await clear.sort(function(a:any, b:any) {return a.score - b.score}).slice(0, 10)
-    //console.log(`текст после ${clear.length} ${JSON.stringify(clear.slice(0, 3))}`)
-    return await clear ? clear.length > 1 ? clear[randomInt(0, clear.length)].item : clear[0]?.item : null
-}
 export async function Answer_Duplicate_Clear(context: any) {
 	const analyzer: Answer | null = await prisma.answer.findFirst({})
 	if (!analyzer) { return context.send(`Удалять нечего! База пуста`) }
@@ -374,6 +337,7 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
     if (generator_off) { return }
     
 }
+
 export async function Engine_Answer_Wall(context: any, regtrg: boolean) {
     await Message_Education_Module(context)
     if (regtrg) { await User_Ignore(context) }

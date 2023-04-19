@@ -7,6 +7,7 @@ import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-d
 import { Call_Me_Controller, Call_Me_Controller_Wall, Engine_Answer, Engine_Answer_Wall, User_Registration, User_Say, User_ignore_Check } from './engine/helper';
 import prisma from './module/prisma';
 import { Analyzer_New_Age } from './module/reseach';
+import Engine_Generate_Last_Age from './module/reseacher_parallel';
 //import { registerCommandRoutes } from './engine/command';
 const natural = require('natural');
 
@@ -55,6 +56,8 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			const call_me_check = await Call_Me_Controller(context)
 			if (!call_me_check) { return await next() }
 		}
+		const ans = await Engine_Generate_Last_Age(context.text)
+		console.log("🚀 ~ file: index.ts:60 ~ vk.updates.on ~ ans:", ans)
 		if (await User_Say(context) == false) { return await next() }
 		console.log(`Обнаружено новое сообщение ${context.text} от ${context.senderId} запуск SpeedBoost генератора`)
 		const status = await Analyzer_New_Age(context)
