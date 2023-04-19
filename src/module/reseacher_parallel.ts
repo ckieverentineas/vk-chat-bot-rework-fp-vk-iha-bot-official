@@ -30,8 +30,50 @@ interface Match {
   sentence: string;
   score: number;
   }
-  
-function findClosestMatch(query: string, sentences: string[]): { sentence: string, query: string } | undefined {
+  function findClosestMatch(query: string, sentences: string[]): { sentence: string, query: string } | undefined {
+    // Приводим запрос и предложения к нижнему регистру
+    query = query.toLowerCase();
+    const sentencesLower = sentences.map(sentence => sentence.toLowerCase());
+    
+    // Разбиваем запрос на отдельные слова
+    const tokenizer = new WordTokenizer();
+    const queryWords = tokenizer.tokenize(query);
+    
+    // Извлекаем контекст из запроса пользователя
+    const contextWords = queryWords;
+    
+    // Вычисляем схожесть между каждым предложением и запросом,
+    // используя функции JaroWinklerDistance, LevenshteinDistance и cosineSimilarity
+    const matches: Match[] = sentencesLower.map(sentenceLower => {
+    const jaroWinklerScore = JaroWinklerDistance(query, sentenceLower, {} );
+    const levenshteinScore = 1 / (levenshteinDistance(query, sentenceLower) + 1);
+    const cosineScore = compareTwoStrings(query, sentenceLower);
+    const score = (jaroWinklerScore + levenshteinScore + cosineScore) / 3;
+    
+    return {
+      sentence: sentenceLower,
+      score: score
+    };
+    });
+    
+    // Сортируем результаты по убыванию схожести
+    matches.sort((a, b) => b.score - a.score);
+    
+    // Находим наилучшее совпадение, учитывая контекст
+    const bestMatch = matches.find(match => {
+    const matchWords = tokenizer.tokenize(match.sentence);
+    const intersection = matchWords.filter(word => contextWords.includes(word));
+    return intersection.length > 0;
+    });
+    
+    // Если нашлось хотя бы одно совпадение, возвращаем его
+    if (bestMatch) {
+    return { sentence: bestMatch.sentence, query };
+    } else {
+    return undefined;
+    }
+    }
+/*function findClosestMatch(query: string, sentences: string[]): { sentence: string, query: string } | undefined {
   // Приводим запрос и предложения к нижнему регистру
   query = query.toLowerCase();
   const sentencesLower = sentences.map(sentence => sentence.toLowerCase());
@@ -42,45 +84,42 @@ function findClosestMatch(query: string, sentences: string[]): { sentence: strin
   
   // Извлекаем контекст из запроса пользователя
   const contextWords = queryWords;
-  
   // Вычисляем схожесть между каждым предложением и запросом,
-  // используя функции JaroWinklerDistance, LevenshteinDistance и cosineSimilarity
-  const matches: Match[] = sentencesLower.map(sentenceLower => {
-  const jaroWinklerScore = JaroWinklerDistance(query, sentenceLower, {} );
-  const levenshteinScore = 1 / (levenshteinDistance(query, sentenceLower) + 1);
-  const cosineScore = compareTwoStrings(query, sentenceLower);
-  const score = (jaroWinklerScore + levenshteinScore + cosineScore) / 3;
-  
-  return {
+  // используя функцию JaroWinklerDistance из модуля "natural"
+  const matches: Match[] = sentencesLower.map(sentenceLower => ({
     sentence: sentenceLower,
-    score: score
-  };
-  });
-  
+    score: JaroWinklerDistance(query, sentenceLower, {})
+  }));
+
+  // Отбираем только те предложения, которые имеют сходство выше некоторого порога
+  const threshold = 0.1;
+  const filteredMatches = matches.filter(match => match.score >= threshold);
+
+  // Если нет ни одного предложения, которое имеет достаточное сходство с запросом,
+  // возвращаем undefined
+  if (filteredMatches.length === 0) {
+    return undefined;
+  }
   // Сортируем результаты по убыванию схожести
   matches.sort((a, b) => b.score - a.score);
-  
-  // Находим наилучшее совпадение, учитывая контекст
-  const bestMatch = matches.find(match => {
-  const matchWords = tokenizer.tokenize(match.sentence);
-  const intersection = matchWords.filter(word => contextWords.includes(word));
-  return intersection.length > 0;
+  // Находим предложение с наибольшим сходством
+  const bestMatch = filteredMatches.reduce((prev, current) => {
+    return prev.score > current.score ? prev : current;
   });
-  
   // Если нашлось хотя бы одно совпадение, возвращаем его
   if (bestMatch) {
-  return { sentence: bestMatch.sentence, query };
-  } else {
-  return undefined;
-  }
-  }
+    return { sentence: bestMatch.sentence, query };
+    } else {
+    return undefined;
+    }
+  }*/
 
 async function processText(text: string): Promise<{ sentence: string, query: string }[]> {
   const tokenizedText = tokenizeText(text);
   const generator = Generator_Sentence();
   let result: { sentence: string, query: string }[] = [];
   for await (const sentences of generator) {
-    const similarities: any = tokenizedText.map(query => findClosestMatch(query.join(" "), sentences.map((sent:any) => sent.answer))).filter(Boolean);
+    const similarities: any = tokenizedText.map(query => findClosestMatch(query.join(" "), sentences.map((sent:any) => sent.qestion))).filter(Boolean);
     if (!similarities.length) continue;
     const similaritiesWithQuery = similarities.map((similarity: { sentence: string, query: string }) => ({
       sentence: similarity.sentence,
@@ -103,7 +142,6 @@ async function generateBestSentences(text: string): Promise<{ sentence: string, 
         bestSentences.push({ query, sentence: bestSentence });
       }
     }
-  
     return bestSentences;
   }
   async function Engine_Generate_Last_Age(text: string) {
@@ -128,7 +166,7 @@ async function generateBestSentences(text: string): Promise<{ sentence: string, 
     let result = ''
     if (answers.length > 0) {
         result =  answers.length == 1 ? answers.map(answer => `${answer.answer}\n\n`).join('') : answers.map(answer => `${answer.input}-->\n${answer.answer}\n\n`).join('')
-        console.log(`\n${answers.map(answer => `Уникальный идентификатор: ${answer.id}\nВвод пользователя: ${answer.input}\nВыбор вопроса: ${answer.qestion}\nВыбор ответа: ${answer.answer}`).join('')}\nЗатраченно времени: ${(Date.now() - data_old)/1000} сек.\n\n`)
+        console.log(`\n${answers.map(answer => `\nУникальный идентификатор: ${answer.id}\nВвод пользователя: ${answer.input}\nВыбор вопроса: ${answer.qestion}\nВыбор ответа: ${answer.answer}`).join('')}\nЗатраченно времени: ${(Date.now() - data_old)/1000} сек.\n\n`)
         return result
     }
     

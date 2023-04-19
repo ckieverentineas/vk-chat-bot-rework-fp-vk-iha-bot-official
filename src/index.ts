@@ -56,14 +56,16 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 			const call_me_check = await Call_Me_Controller(context)
 			if (!call_me_check) { return await next() }
 		}
-		console.log(`Обнаружено новое сообщение ${context.text} от ${context.senderId} запуск MultiBoost генератора`)
+		if (await User_Say(context) == false) { return await next() }
+		console.log(`MultiBoost генератор стартует для обработки нового сообщения ${context.text} от пользователя ${context.senderId}`)
 		const ans = await Engine_Generate_Last_Age(context.text)
 		if (!ans) { 
-			console.log(`MultiBoost генератор не нашел ответ на сообщение ${context.text} от ${context.senderId}`)
-		} else { context.send(ans)}
-		
-		if (await User_Say(context) == false) { return await next() }
-		console.log(`Обнаружено новое сообщение ${context.text} от ${context.senderId} запуск SpeedBoost генератора`)
+			console.log(`MultiBoost генератор не нашел ответ на сообщение ${context.text} от пользователя ${context.senderId}`)
+		} else { 
+			try { if (context.isChat) { await context.reply(`${ans}`) } else { await context.send(`${ans}`) } } catch (e) { console.log(`Проблема отправки сообщения в чат: ${e}`) }
+			return await next()
+		}
+		console.log(`SpeedBoost генератор стартует для обработки сообщения ${context.text} от пользователя ${context.senderId}`)
 		const status = await Analyzer_New_Age(context)
 		if (!status) {
 			console.log(`SpeedBoost генератор не справился для ${context.text} от ${context.senderId} запуск LongDepth генератора`)
@@ -80,7 +82,15 @@ vk1.updates.on('message_new', async (context: any, next: any) => {
 			if (!call_me_check) { return await next() }
 		}
 		if (await User_Say(context) == false) { return await next() }
-		console.log(`Обнаружено новое сообщение ${context.text} от ${context.senderId} запуск SpeedBoost генератора`)
+		console.log(`MultiBoost генератор стартует для обработки нового сообщения ${context.text} от пользователя ${context.senderId}`)
+		const ans = await Engine_Generate_Last_Age(context.text)
+		if (!ans) { 
+			console.log(`MultiBoost генератор не нашел ответ на сообщение ${context.text} от пользователя ${context.senderId}`)
+		} else { 
+			try { if (context.isChat) { await context.reply(`${ans}`) } else { await context.send(`${ans}`) } } catch (e) { console.log(`Проблема отправки сообщения в чат: ${e}`) }
+			return await next()
+		}
+		console.log(`SpeedBoost генератор стартует для обработки сообщения ${context.text} от пользователя ${context.senderId}`)
 		const status = await Analyzer_New_Age(context)
 		if (!status) {
 			console.log(`SpeedBoost генератор не справился для ${context.text} от ${context.senderId} запуск LongDepth генератора`)
