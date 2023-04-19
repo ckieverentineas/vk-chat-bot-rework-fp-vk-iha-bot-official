@@ -18,6 +18,8 @@ npm run dev
 Готовая база данных доступна по ссылке https://disk.yandex.ru/d/53_bbZFdetWH6w <br />
 ее необходимо закинуть в папку prisma (что находится в корне проекта) под названием dev.db
 
+❗ Если у вас Linux, то используйте скрипты sh по аналогии!
+
 В случае проблем с базами данных:
 ```bash
 npx prisma migrate dev --name init
