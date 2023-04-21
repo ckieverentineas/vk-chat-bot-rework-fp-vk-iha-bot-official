@@ -51,6 +51,7 @@ registerUserRoutes(hearManager)
 //миддлевар для предварительной обработки сообщений
 vk.updates.on('message_new', async (context: any, next: any) => {
 	const regtrg = await User_Registration(context)
+	if (context.hasAttachments("sticker")) { context.text = 'стикер' }
 	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
 		if (context.isChat) {
 			const call_me_check = await Call_Me_Controller(context)
@@ -76,6 +77,7 @@ vk.updates.on('message_new', async (context: any, next: any) => {
 })
 vk1.updates.on('message_new', async (context: any, next: any) => {
 	const regtrg = await User_Registration(context)
+	if (context.hasAttachments("sticker")) { context.text = 'стикер' }
 	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
 		if (context.isChat) {
 			const call_me_check = await Call_Me_Controller(context)
@@ -102,6 +104,7 @@ vk1.updates.on('message_new', async (context: any, next: any) => {
 vk1.updates.on('wall_reply_new', async (context: any, next: any) => {
 	context.senderId = context.fromId
 	const regtrg = await User_Registration(context)
+	if (context.hasAttachments("sticker")) { context.text = 'стикер' }
 	if (context.fromId > 0 && context.text) {
 		const call_me_check = await Call_Me_Controller_Wall(context)
 		if (!call_me_check) { return await next() }
