@@ -1,7 +1,7 @@
 import { Answer, Dictionary } from "@prisma/client";
 import { root, tokenizer, tokenizer_sentence, vks, vks_info } from "..";
 import { randomInt } from "crypto";
-import { Message_Education_Module } from "./parser";
+import { Auto_Corrector_Natural, Message_Education_Module } from "./parser";
 import prisma from "../module/prisma";
 import Engine_Generate_Last_Age from "../module/reseacher_parallel";
 import { Analyzer_New_Age } from "../module/reseach";
@@ -486,7 +486,8 @@ export async function Re_Answer_controller(context: MessageContext): Promise<boo
     return false
 }
 
-export async function Word_Count_Controller(text: string): Promise<boolean> {
+export async function Word_Count_Controller(context: any): Promise<boolean> {
+    let text = context.text
     if (!text || text.length === 0) {
         return true;
     }
@@ -508,6 +509,10 @@ export async function Word_Count_Controller(text: string): Promise<boolean> {
     // рандомизируем число слов в соответствии с заданными вероятностями
     const randomNum = Math.random();
     const numWords = borders.findIndex((border: number) => randomNum < border) + 1;
+    if (wordCount.length >= 50) { 
+        let words = text.split(/\s+/).slice(0, 200);
+        context.text = words.join(" ");
+    }
 
     // выбираем меньшее из двух значений
     return wordCount.length >= numWords  ? false : true;

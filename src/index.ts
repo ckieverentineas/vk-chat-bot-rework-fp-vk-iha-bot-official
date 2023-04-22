@@ -87,7 +87,7 @@ for (const vk of vks) {
 				if (call_me_check) { return await next() }
 				const re_answer_check = await Re_Answer_controller(context)
 				if (re_answer_check) { return await next() }
-				const word_controller = await Word_Count_Controller(context.text)
+				const word_controller = await Word_Count_Controller(context)
 				if (word_controller) { return await next() }
 			}
 			if (await User_Say(context) == false) { return await next() }
@@ -111,6 +111,8 @@ for (const vk of vks) {
 		if (context.fromId > 0 && context.text) {
 			const call_me_check = await Call_Me_Controller(context.text)
 			if (call_me_check) { return await next() }
+			const word_controller = await Word_Count_Controller(context)
+			if (word_controller) { return await next() }
 			if (await User_Say(context) == false) { return await next() }
 			//модуль гена
 			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)

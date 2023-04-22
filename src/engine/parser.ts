@@ -393,11 +393,11 @@ export async function clearData(filePath: string): Promise<void> {
     const lineReader = readline.createInterface({ input: readStream });
   
     for await (const line of lineReader) {
-      const normalizedLine = _.trim(line.toLowerCase().replace(/[^a-zа-я0-9\s]/g, ' '));
-      const words = normalizedLine.split(/\s+/).filter((word: string | any[]) => word.length > 0);
-      const correctedWords = words.map((word: any) => spellcheck.isCorrect(word) ? word : spellcheck.getCorrections(word)[0] || word);
-      const correctedLine = correctedWords.join(' ');
-      uniqueLines.add(correctedLine);
+        const normalizedLine = _.trim(line.toLowerCase().replace(/[^a-zа-я0-9\s]/g, ' '));
+        const words = normalizedLine.split(/\s+/).filter((word: string | any[]) => word.length > 0);
+        const correctedWords = words.map((word: any) => spellcheck.isCorrect(word) ? word : spellcheck.getCorrections(word)[0] || word);
+        const correctedLine = correctedWords.join(' ');
+        uniqueLines.add(correctedLine);
     }
   
     const sortedLines = Array.from(uniqueLines).sort();
@@ -405,3 +405,12 @@ export async function clearData(filePath: string): Promise<void> {
     // Если нужно записать результат в файл, можно использовать следующий код:
     await fsfull.promises.writeFile('outputcleared.txt', sortedLines.join('\n'));
   }
+  export async function Auto_Corrector_Natural(context: any): Promise<boolean> {
+    console.log("🚀 ~ file: parser.ts:409 ~ Auto_Corrector_Natural ~ inputString:", context.text)
+    const spellcheck = new Spellcheck(['ru']);
+    const words = context.text.split(/\s+/).filter((word: string | any[]) => word.length > 0);
+    const correctedWords = words.map((word: any) => spellcheck.isCorrect(word) ? word : spellcheck.getCorrections(word)[0] || word);
+    context.text = correctedWords.join(' ');    
+    console.log("🚀 ~ file: parser.ts:415 ~ Auto_Corrector_Natural ~ correctedLine:", context.text)
+    return true;
+}
