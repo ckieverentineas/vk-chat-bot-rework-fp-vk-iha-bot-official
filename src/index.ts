@@ -3,26 +3,19 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import * as dotenv from 'dotenv' // see https://github.com/motdotla/dotenv#how-do-i-use-dotenv-with-import
-import { Call_Me_Controller, Call_Me_Controller_Wall, Engine_Answer, Engine_Answer_Wall, User_Registration, User_Say, User_ignore_Check } from './engine/helper';
+import { Answer_Core_Edition, Call_Me_Controller, Direct_Search, Engine_Answer, Engine_Answer_Wall, Re_Answer_controller, User_Ignore, User_Login, User_Registration, User_Say, User_ignore_Check, Word_Count_Controller } from './engine/helper';
 import prisma from './module/prisma';
 import { Analyzer_New_Age } from './module/reseach';
 import Engine_Generate_Last_Age from './module/reseacher_parallel';
 //import { registerCommandRoutes } from './engine/command';
 const natural = require('natural');
+import * as dotenv from "dotenv";
+dotenv.config();
 
-dotenv.config()
-export const token: string = String(process.env.token)
-export const token_group: string = String(process.env.token_group)
+
+
 export const root: number = Number(process.env.root) //root user
-export const bot_id: number = Number(process.env.bot_id) //root user
-//export const chat_id: number = Number(process.env.chat_id) //chat for logs
-export const group_id: number = Number(process.env.group_id)//clear chat group
-export const timer_text = { answerTimeLimit: 300_000 } // ожидать пять минут
-export const answerTimeLimit = 300_000 // ожидать пять минут
-//авторизация
-export const vk = new VK({ token: token, /*pollingGroupId: group_id,*/ apiMode: "sequential", apiLimit: 1 });
-export const vk1 = new VK({ token: token_group, pollingGroupId: group_id, apiMode: "sequential", apiLimit: 1 });
+
 //инициализация
 const questionManager = new QuestionManager();
 const hearManager = new HearManager<IQuestionMessageContext>();
@@ -39,82 +32,101 @@ prisma.$use(async (params, next) => {
 })
 */
 
-//настройка
-vk.updates.use(questionManager.middleware);
-vk.updates.on('message_new', hearManager.middleware);
-vk1.updates.use(questionManager.middleware);
-vk1.updates.on('message_new', hearManager.middleware);
-//регистрация роутов из других классов
-InitGameRoutes(hearManager)
-registerUserRoutes(hearManager)
-//registerCommandRoutes(hearManager)
-//миддлевар для предварительной обработки сообщений
-vk.updates.on('message_new', async (context: any, next: any) => {
-	const regtrg = await User_Registration(context)
-	if (context.hasAttachments("sticker")) { context.text = 'стикер' }
-	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
-		if (context.isChat) {
-			const call_me_check = await Call_Me_Controller(context)
-			if (!call_me_check) { return await next() }
+
+export interface VKs_Info {
+	idvk: number,
+	type: string
+}
+// Определяем тип сущности VK (страница или группа)
+type VkEntityType = 'page' | 'group';
+
+// Определяем тип объекта, содержащего информацию о Vk-сущности
+type VkEntity = {
+	token: string,
+	idvk: number,
+	type: VkEntityType
+};
+
+// Получаем данные обо всех Vk-сущностях из .env файла
+const vkEntities: VkEntity[] = JSON.parse(String(process.env.VK_ENTITIES)) || '[]';
+// Создаем объект VK для каждой Vk-сущности
+export const vks: VK[] = [];
+export const vks_info: VKs_Info[] = [];
+for (const entity of vkEntities) {
+	//авторизация
+	const vk = new VK({
+		token: entity.token ,
+		apiLimit: 1,
+		pollingGroupId: entity.type === 'group' ? entity.idvk : undefined,
+	});
+	vks.push(vk);
+	vks_info.push({ idvk: entity.idvk, type: entity.type })
+}
+for (const vk of vks) {
+	//настройка
+	vk.updates.use(questionManager.middleware);
+	vk.updates.on('message_new', hearManager.middleware);
+	vk.updates.use(questionManager.middleware);
+	vk.updates.on('message_new', hearManager.middleware);
+	//регистрация роутов из других классов
+	InitGameRoutes(hearManager)
+	registerUserRoutes(hearManager)
+	//registerCommandRoutes(hearManager)
+	//миддлевар для предварительной обработки сообщений
+	vk.updates.on('message_new', async (context: any, next: any) => {
+		console.log(`Пользователь ${context.senderId} прислал сообщение ${context.text} в ${context.isChat ? "Беседу" : "Личные сообщения"}`)
+		const regtrg = await User_Registration(context)
+		if (context.hasAttachments("sticker")) { context.text = 'стикер' }
+		if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
+			//может  обвернем в единое окно проверок
+			if (regtrg) { await User_Ignore(context) }
+			const bot_memory = await User_Login(context)
+			if (!bot_memory) { return  await next() }
+			if (context.isChat) {
+				const call_me_check = await Call_Me_Controller(context.text)
+				if (call_me_check) { return await next() }
+				const re_answer_check = await Re_Answer_controller(context)
+				if (re_answer_check) { return await next() }
+				const word_controller = await Word_Count_Controller(context.text)
+				if (word_controller) { return await next() }
+			}
+			if (await User_Say(context) == false) { return await next() }
+			//модуль гена
+			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)
+			if (!res.status) { console.log(res.info); return await next() }
+			try { 
+				if (context.isChat) { await context.reply(`${res.answer}`) } else { await context.send(`${res.answer}`) }
+				console.log(res.info)
+			} catch (e) {
+				console.log(`Проблема отправки сообщения в чат: ${e}`) 
+			}
 		}
-		if (await User_Say(context) == false) { return await next() }
-		console.log(`MultiBoost генератор стартует для обработки нового сообщения ${context.text} от пользователя ${context.senderId}`)
-		const ans = await Engine_Generate_Last_Age(context.text)
-		if (!ans) { 
-			console.log(`MultiBoost генератор не нашел ответ на сообщение ${context.text} от пользователя ${context.senderId}`)
-		} else { 
-			try { if (context.isChat) { await context.reply(`${ans}`) } else { await context.send(`${ans}`) } } catch (e) { console.log(`Проблема отправки сообщения в чат: ${e}`) }
-			return await next()
+		return await next();
+	})
+	vk.updates.on('wall_reply_new', async (context: any, next: any) => {
+		context.senderId = context.fromId
+		console.log(`Пользователь ${context.senderId} прислал сообщение ${context.text} на стену группы`)
+		const regtrg = await User_Registration(context)
+		if (context.hasAttachments("sticker")) { context.text = 'стикер' }
+		if (context.fromId > 0 && context.text) {
+			const call_me_check = await Call_Me_Controller(context.text)
+			if (call_me_check) { return await next() }
+			if (await User_Say(context) == false) { return await next() }
+			//модуль гена
+			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)
+			if (!res.status) { console.log(res.info); return await next() }
+			try {
+				if (context.isWallComment) {
+					await context.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${res.answer}`})
+					console.log(res.info)
+				}
+			} catch (e) {
+				console.log(`Проблема отправки сообщения в чат: ${e}`)
+			}
 		}
-		console.log(`SpeedBoost генератор стартует для обработки сообщения ${context.text} от пользователя ${context.senderId}`)
-		const status = await Analyzer_New_Age(context)
-		if (!status) {
-			console.log(`SpeedBoost генератор не справился для ${context.text} от ${context.senderId} запуск LongDepth генератора`)
-			await Engine_Answer(context,regtrg)
-		}
-	}
-	return await next();
-})
-vk1.updates.on('message_new', async (context: any, next: any) => {
-	const regtrg = await User_Registration(context)
-	if (context.hasAttachments("sticker")) { context.text = 'стикер' }
-	if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
-		if (context.isChat) {
-			const call_me_check = await Call_Me_Controller(context)
-			if (!call_me_check) { return await next() }
-		}
-		if (await User_Say(context) == false) { return await next() }
-		console.log(`MultiBoost генератор стартует для обработки нового сообщения ${context.text} от пользователя ${context.senderId}`)
-		const ans = await Engine_Generate_Last_Age(context.text)
-		if (!ans) { 
-			console.log(`MultiBoost генератор не нашел ответ на сообщение ${context.text} от пользователя ${context.senderId}`)
-		} else { 
-			try { if (context.isChat) { await context.reply(`${ans}`) } else { await context.send(`${ans}`) } } catch (e) { console.log(`Проблема отправки сообщения в чат: ${e}`) }
-			return await next()
-		}
-		console.log(`SpeedBoost генератор стартует для обработки сообщения ${context.text} от пользователя ${context.senderId}`)
-		const status = await Analyzer_New_Age(context)
-		if (!status) {
-			console.log(`SpeedBoost генератор не справился для ${context.text} от ${context.senderId} запуск LongDepth генератора`)
-			await Engine_Answer(context,regtrg)
-		}
-	}
-	return await next();
-})
-vk1.updates.on('wall_reply_new', async (context: any, next: any) => {
-	context.senderId = context.fromId
-	const regtrg = await User_Registration(context)
-	if (context.hasAttachments("sticker")) { context.text = 'стикер' }
-	if (context.fromId > 0 && context.text) {
-		const call_me_check = await Call_Me_Controller_Wall(context)
-		if (!call_me_check) { return await next() }
-		await Engine_Answer_Wall(context,regtrg)
-	}
-	return await next();
-})
-vk.updates.start().then(() => {
-	console.log('Бот успешно запущен и готов к эксплуатации!')
-}).catch(console.log);
-vk1.updates.startPolling().then(() => {
-	console.log('Бот Группа успешно запущен и готов к эксплуатации!')
-}).catch(console.log);
+		return await next();
+	})
+	vk.updates.start().then(() => {
+		console.log('Бот успешно запущен и готов к эксплуатации!')
+	}).catch(console.log);
+}

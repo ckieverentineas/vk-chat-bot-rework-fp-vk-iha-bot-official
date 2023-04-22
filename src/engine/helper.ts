@@ -1,13 +1,15 @@
 import { Answer, Dictionary } from "@prisma/client";
-import { bot_id, group_id, root, tokenizer, tokenizer_sentence, vk, vk1 } from "..";
+import { root, tokenizer, tokenizer_sentence, vks, vks_info } from "..";
 import { randomInt } from "crypto";
 import { Message_Education_Module } from "./parser";
 import prisma from "../module/prisma";
+import Engine_Generate_Last_Age from "../module/reseacher_parallel";
+import { Analyzer_New_Age } from "../module/reseach";
+import { MessageContext } from "vk-io";
 const getSlug  = require('speakingurl');
 const Fuse = require("fuse.js")
 const translate = require('secret-package-for-my-own-use');
 const {distance, closest} = require('fastest-levenshtein')
-
 export function Sleep(ms: number) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
@@ -138,7 +140,7 @@ export async function Answer_Duplicate_Clear(context: any) {
                     
                 }
             } catch (e) {
-                await vk.api.messages.send({
+                await context.send({
                     peer_id: root,
                     random_id: 0,
                     message: `База данных не вывезла чистку для вопрос-ответа ${line[i].id}: ${e}`
@@ -239,25 +241,19 @@ export async function User_Say(context: any) {
     return true;
 }
 export async function User_Info(context: any) {
-    let [userData]= await vk.api.users.get({user_id: context.senderId});
+    let [userData] = await context.api.users.get({user_id: context.senderId});
     return userData
 }
 export async function User_ignore_Check(context: any) {
     const user: any = await prisma.user.findFirst({ where: { idvk: context.senderId } })
     return user.ignore ? false : true
 }
-export async function Engine_Answer(context: any, regtrg: boolean) {
+export async function Engine_Answer(context: any, res: { text: string, answer: string, info: string, status: boolean }) {
     await Message_Education_Module(context)
-    if (regtrg) { await User_Ignore(context) }
-	const bot_memory = await User_Login(context)
-	if (!bot_memory) { return }
 	const data_old = Date.now()
-	const sentence: Array<string> = tokenizer_sentence.tokenize(context.text.toLowerCase())
+	const sentence: Array<string> = tokenizer_sentence.tokenize(res.text.toLowerCase())
 	let ans: any = []
-    const generator_off = false
-    
 	for (const stce in sentence) {
-        await context.setActivity();
         //берем предложение
         const sentence_sel: string = sentence[stce]
         //если его нет, идем дальше
@@ -274,12 +270,10 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
             ans.push({correct_text: sentence_corrected.qestion, result_text: sentence_corrected.answer, type: "Вопрос-Ответ С коррекцией"})
             continue
         }
-        if (generator_off) { continue}
         //Если нифига нет, тогда давайте сами строить, фигли
         const word_list = tokenizer.tokenize(sentence_sel)
         let sentence_build = ''
         for (let j = 0; j < word_list.length; j++) {
-            await context.setActivity();
             const word_input = word_list[j]
             let word_sel: string | null = null
             if (!word_input || word_input.length < 1) { continue }
@@ -308,7 +302,7 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
             const sentence_new: string | null = await deleteDuplicate(sentence_build)
             if (sentence_new) {
                 const res = await translate(`${sentence_new}`, { from: 'auto', to: 'en', autoCorrect: true });
-                if (!res.text) { console.log(`Получено сообщение: ${context.text}, но ответ не найден`); continue }
+                if (!res.text) { console.log(`Получено сообщение: ${res.text}, но ответ не найден`); continue }
                 const fin = await translate(`${res.text}`, { from: 'en', to: 'ru', autoCorrect: true });
                 ans.push({correct_text: sentence_new, result_text: fin.text, type: "Генератор Цыган"})
                 continue 
@@ -320,22 +314,12 @@ export async function Engine_Answer(context: any, regtrg: boolean) {
             continue 
         }
     }
-    const answer: string = await ans.map((item: { result_text: any; }) => {return item.result_text;}).join("\r\n")
-    console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${await ans.map((item: { correct_text: any; }) => {return item.correct_text;}).join("\r\n")}] \n Сгенерирован ответ: [${await ans.map((item: { result_text: any; }) => {return item.result_text;}).join(". ")}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${await ans.map((item: { type: any; }) => {return item.type;}).join(" + ")}] \n\n`)
-    if (answer.length > 0) { 
-        try {
-            if (context.isChat) {
-                await context.reply(`${answer}`) 
-            } else {
-                await context.send(`${answer}`) 
-            }
-        } catch (e) {
-            console.log(`Проблема отправки сообщения в чат: ${e}`)
-        }
-    }	
-    
-    if (generator_off) { return }
-    
+    res.answer = await ans.map((item: { result_text: any; }) => {return item.result_text;}).join("\r\n")
+    res.info = ` Получено сообщение: [${res.text}] \n Исправление ошибок: [${await ans.map((item: { correct_text: any; }) => {return item.correct_text;}).join("\r\n")}] \n Сгенерирован ответ: [${await ans.map((item: { result_text: any; }) => {return item.result_text;}).join(". ")}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${await ans.map((item: { type: any; }) => {return item.type;}).join(" + ")}] \n\n`
+    if (res.answer.length > 0) { 
+        res.status = true
+    }
+    return res
 }
 
 export async function Engine_Answer_Wall(context: any, regtrg: boolean) {
@@ -415,7 +399,7 @@ export async function Engine_Answer_Wall(context: any, regtrg: boolean) {
     if (answer.length > 0) { 
         try {
             if (context.isWallComment) {
-                await vk1.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${answer}`})
+                await context.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${answer}`})
             }
         } catch (e) {
             console.log(`Проблема отправки сообщения в чат: ${e}`)
@@ -425,84 +409,106 @@ export async function Engine_Answer_Wall(context: any, regtrg: boolean) {
     if (generator_off) { return }
     
 }
-export async function Call_Me_Controller(context: any) {
+
+function extractMentions(text: string): Array<{ id: number, name: string, type: "user" | "club" }> {
+    const mentionRegExp = /\[(id|club)(\d+)\|([^\]]+)\]/g;
+    const mentions: Array<{ id: number, name: string, type: "user" | "club" }> = [];
+    let match;
+    while ((match = mentionRegExp.exec(text)) !== null) {
+      const type = match[1] === "id" ? "user" : "club";
+      const id = parseInt(match[2]);
+      const name = match[3];
+      mentions.push({ id: id, name: name, type: type });
+    }
+    return mentions;
+  }
+  
+  export async function Call_Me_Controller(text: string): Promise<boolean> {
+    const mentions = extractMentions(text);
+    if (mentions.length === 0) {
+      //console.log("Упоминаний не найдено");
+      return false;
+    }
+  
+    const ids = vks_info.map((info) => info.idvk);
+    for (const mention of mentions) {
+      if (ids.includes(mention.id)) {
+        //console.log(`Нас упомянули: ${mention.id}`);
+        return false;
+      }
+    }
+  
+    //console.log("Нас никто не упомянул, вернется false для продолжения");
+    return true;
+  }
+
+export async function Direct_Search(res: { text: string, answer: string, info: string, status: boolean}) {
+    const data_old = Date.now()
+    const analyzer: Answer | undefined | null = await prisma.answer.findFirst({ where: { qestion: res.text } });
+    if (analyzer) {
+        res.answer = analyzer.answer
+        res.info = ` Получено сообщение: [${res.text}] \n Исправление ошибок: [${analyzer.qestion}] \n Сгенерирован ответ: [${analyzer.answer}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${"DirectBoost"}] \n\n`
+        res.status = true
+    }
+    return res
+}
+
+export async function Answer_Core_Edition(res: { text: string, answer: string, info: string, status: boolean }, context: any) {
+	res = await Direct_Search(res)
+	console.log(`DirectBoost ${res.status ? "{X}" : "{V}"} ${context.senderId} --> ${context.text} <-- ${res.status ? "{Success}" : "{NotFound}"}`)
+	res = !res.status ? await Engine_Generate_Last_Age(res) : res
+	console.log(`MultiBoost  ${res.status ? "{X}" : "{V}"} ${context.senderId} --> ${context.text} <-- ${res.status ? "{Success}" : "{NotFound}"}`)
+	res = !res.status ? await Analyzer_New_Age(res) : res
+	console.log(`SpeedBoost  ${res.status ? "{X}" : "{V}"} ${context.senderId} --> ${context.text} <-- ${res.status ? "{Success}" : "{NotFound}"}`)
+	res = !res.status ? await Engine_Answer(context, res) : res
+	console.log(`LongDepth   ${res.status ? "{X}" : "{V}"} ${context.senderId} --> ${context.text} <-- ${res.status ? "{Success}" : "{NotFound}"}`)
+    return res
+}
+
+export async function Re_Answer_controller(context: MessageContext): Promise<boolean> {
+    const ids = vks_info.map((info) => info.idvk);
     try {
         await context.loadMessagePayload();
     } catch (e) {
         console.log(`ВК послал нас нафиг, так и не подгрузив данные о сообщениях: ${e}`)
     }
-    //console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ context", context)
-    const arr: Array<string> = await tokenizer.tokenize(context.text)
-    if (arr && (arr.length < 3 || arr.length > 50) && !context.replyMessage) {
-        //console.log("🚀 ~ file: index.ts:81 ~ vk.updates.on ~ context.forwards", context.forwards)
-        //console.log('Ответов нет, длина не соотвествует')
-        return false;
-    }
-    //console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ arr", arr.length)
-    
-    //console.log(context?.forwards)
-    if ((context.replyMessage && context.replyMessage.senderId != bot_id) || (context.forwards > 1)) {
-        //console.log('Ответ есть, но нее мне')
-        //console.log("🚀 ~ file: index.ts:84 ~ vk.updates.on ~ context", context)
-        return false;
-    } else {
-        //console.log('Упоминания есть')
-        const data = context.text.match(/\[id(\d+)\|([аА-яЯaA-zZ -_]+)\]|\[club(\d+)\|([аА-яЯaA-zZ -_]+)\]/g)
-        //console.log(JSON.stringify(data))
-        if (data && data.length >= 1) {
-            let finder = false
-            for (const i in data) {
-                const data_idvk = data[i].match(/(\d+)\|/g)
-                const data_name = data[i].match(/\|([аА-яЯaA-zZ -_]+)/g)
-                const idvk = data_idvk.toString().replace('|', '')
-                const name = data_name.toString().replace('|', '').replace(']', '')
-                //await context.send(`${data_idvk} ${data_name}`)
-                //console.log(`${idvk} ${name}`)
-                if (idvk == bot_id) {
-                    //console.log('Check')
-                    finder = true
-                    context.text = `${name} ${context.text}`
-                }
-            }
-            if (!finder) { 
-                //console.log('Упомянули не меня')
-                return false;
-            }
+    if (context.replyMessage) {
+        //console.log(`Ответ на сообщение бота. Идентификатор диалога: ${context.replyMessage.peerId}`);
+        // Обработка ответа на сообщение бота
+        if (ids.includes(context.replyMessage.senderId)) {
+            return false
+        } else {
+            //console.log(`Ответ на сообщение другого пользователя. Идентификатор диалога: ${context.replyMessage?.peerId}`);
+            // Обработка ответа на сообщение другого пользователя
+            return true
         }
     }
-    return true
+    return false
 }
-export async function Call_Me_Controller_Wall(context: any) {
-    //console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ context", context)
-    const arr: Array<string> = await tokenizer.tokenize(context.text)
-    if (arr && (arr.length < 3 || arr.length > 50)) {
-        //console.log("🚀 ~ file: index.ts:81 ~ vk.updates.on ~ context.forwards", context.forwards)
-        //console.log('Ответов нет, длина не соотвествует')
-        return false;
+
+export async function Word_Count_Controller(text: string): Promise<boolean> {
+    if (!text || text.length === 0) {
+        return true;
     }
-    //console.log("🚀 ~ file: index.ts:78 ~ vk.updates.on ~ arr", arr.length)
-    
-    //console.log(context?.forwards)
-    const data = context.text.match(/\[id(\d+)\|([аА-яЯaA-zZ -_]+)\]|\[club(\d+)\|([аА-яЯaA-zZ -_]+)\]/g)
-    //console.log(JSON.stringify(data))
-    if (data && data.length >= 1) {
-        let finder = false
-        for (const i in data) {
-            const data_idvk = data[i].match(/(\d+)\|/g)
-            const data_name = data[i].match(/\|([аА-яЯaA-zZ -_]+)/g)
-            const idvk = data_idvk.toString().replace('|', '')
-            const name = data_name.toString().replace('|', '').replace(']', '')
-            //await context.send(`${data_idvk} ${data_name}`)
-            //console.log(`${idvk} ${name}`)
-            if (idvk == group_id) {
-                //console.log('Check')
-                finder = true
-            }
-        }
-        if (!finder) { 
-            //console.log('Упомянули не меня')
-            return false;
-        }
+    // проверяем, можно ли привести текст к нижнему регистру
+    const canLowerCase = /[A-ZА-Я]/.test(text);
+    if (canLowerCase) {
+        // приводим текст к нижнему регистру
+        text = text.toLowerCase();
     }
-    return true
+    const wordCount = tokenizer.tokenize(text);
+     // задаем вероятности для каждого значения числа слов
+    const probabilities = [0.1, 0.4, 0.45, 0.05];
+
+    // создаем список границ для каждого значения числа слов
+    const borders: any = probabilities.reduce((acc: any, curr, index) => {
+        if (index === 0) { acc.push(curr); } else { acc.push(acc[index - 1] + curr); }
+        return acc;
+    }, []);
+    // рандомизируем число слов в соответствии с заданными вероятностями
+    const randomNum = Math.random();
+    const numWords = borders.findIndex((border: number) => randomNum < border) + 1;
+
+    // выбираем меньшее из двух значений
+    return wordCount.length >= numWords  ? false : true;
 }

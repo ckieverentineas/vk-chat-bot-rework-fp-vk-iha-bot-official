@@ -3,6 +3,10 @@ import { promises as fsPromises } from 'fs'
 import { COPYFILE_EXCL } from "constants";
 import { promises as fs } from 'fs'
 import prisma from "../module/prisma";
+import * as fsfull from 'fs';
+import * as readline from 'readline';
+import { Spellcheck } from "natural";
+import * as _ from 'lodash';
 
 async function Book_Random_String(filename: string) {
     try {
@@ -307,3 +311,97 @@ export async function Message_Education_Module(context: any) {
     await Message_Education_Dictionary(context)
     await Message_Education_Couple(context)
 }
+//Новый парсер
+interface Answer {
+  text: string;
+}
+
+interface Question {
+  text: string;
+  answers: Answer[];
+}
+
+// Чтение содержимого файла построчно с помощью потокового чтения
+async function readLines(filename: string): Promise<string[]> {
+  const fileStream = fsfull.createReadStream(filename);
+
+  const rl = readline.createInterface({
+    input: fileStream,
+    crlfDelay: Infinity
+  });
+
+  const lines: string[] = [];
+
+  for await (const line of rl) {
+    lines.push(line);
+  }
+
+  return lines;
+}
+
+// Парсинг содержимого файла
+async function parseQuestions(filename: string): Promise<Question[]> {
+  const questions: Question[] = [];
+
+  // Чтение содержимого файла построчно
+  const lines = await readLines(filename);
+
+  let i = 0;
+  while (i < lines.length) {
+    const questionText = lines[i];
+    i++;
+
+    const answers: Answer[] = [];
+    while (i < lines.length && lines[i] !== '') {
+      const answerText = lines[i];
+      i++;
+
+      const answer: Answer = { text: answerText };
+      answers.push(answer);
+    }
+
+    const question: Question = { text: questionText, answers };
+    questions.push(question);
+
+    i++; // Пропускаем пустую строку между вопросами
+  }
+
+  return questions;
+}
+
+// Чтение содержимого файла и парсинг вопросов и ответов
+/*const filename = 'input.txt';
+parseQuestions(filename).then((questions) => {
+    console.log(JSON.stringify(questions, null, 2));
+
+});*/
+
+export async function exportData() {
+    const answers = await prisma.answer.findMany();
+    const data = answers.map((answer, index) => {
+      return `${answer.qestion}\n${answer.answer}\n`;
+    }).join('\n');
+  
+    fsfull.writeFileSync('data.txt', data);
+}
+
+export async function clearData(filePath: string): Promise<void> {
+    const uniqueLines = new Set<string>();
+    const spellcheck = new Spellcheck(['ru']);
+  
+    const readStream = fsfull.createReadStream(filePath, { encoding: 'utf8' });
+    const lineReader = readline.createInterface({ input: readStream });
+  
+    for await (const line of lineReader) {
+      const normalizedLine = _.trim(line.toLowerCase().replace(/[^a-zа-я0-9\s]/g, ' '));
+      const words = normalizedLine.split(/\s+/).filter((word: string | any[]) => word.length > 0);
+      const correctedWords = words.map((word: any) => spellcheck.isCorrect(word) ? word : spellcheck.getCorrections(word)[0] || word);
+      const correctedLine = correctedWords.join(' ');
+      uniqueLines.add(correctedLine);
+    }
+  
+    const sortedLines = Array.from(uniqueLines).sort();
+    console.log(`Количество строк: ${sortedLines.length}`);
+    // Если нужно записать результат в файл, можно использовать следующий код:
+    await fsfull.promises.writeFile('outputcleared.txt', sortedLines.join('\n'));
+  }

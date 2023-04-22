@@ -1,5 +1,6 @@
 import { WordTokenizer, JaroWinklerDistance } from "natural";
 import prisma from "./prisma";
+import { Answer } from "@prisma/client";
 
 function findClosestMatch(query: string, sentences: string[]): string | undefined {
   // Приводим запрос и предложения к нижнему регистру
@@ -60,28 +61,12 @@ async function* Generator_Sentence() {
     }
 }
 
-export async function Analyzer_New_Age(context: any) {
-    const word = context.text
+export async function Analyzer_New_Age(res: { text: string, answer: string, info: string, status: boolean}) {
     const data_old = Date.now()
-    const analyzer = await prisma.answer.findFirst({ where: { qestion: word } });
-    if (analyzer) {
-        try {
-            if (context.isChat) {
-                await context.reply(`${analyzer.answer}`) 
-            } else {
-                await context.send(`${analyzer.answer}`) 
-            }
-            console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${"v"}] \n Сгенерирован ответ: [${analyzer.answer}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${"Новый ген"}] \n\n`)
-            return true;
-        } catch (e) {
-            console.log(`Проблема отправки сообщения в чат: ${e}`)
-            return false;
-        }
-    }
     const clear = [];
     for await (const sentences of Generator_Sentence()) {
         const temp = sentences.map((sentence: { qestion: any; }) => sentence.qestion);
-        const closestMatch = findClosestMatch(word, temp);
+        const closestMatch = findClosestMatch(res.text, temp);
         //console.log(closestMatch); // Ожидаемый вывод: "The quick brown fox"
         if (closestMatch) {
             const foundItems = sentences.filter((sentence: any) => sentence.qestion === closestMatch, sentences.answer);
@@ -93,21 +78,10 @@ export async function Analyzer_New_Age(context: any) {
     if (Array.isArray(clear)) {
         const ans_sel = clear[Math.floor(Math.random() * clear.length)];
         if (ans_sel) { 
-            try {
-                if (context.isChat) {
-                    await context.reply(`${ans_sel.answer}`) 
-                } else {
-                    await context.send(`${ans_sel.answer}`) 
-                }
-                console.log(` Получено сообщение: [${context.text}] \n Исправление ошибок: [${ans_sel.qestion}] \n Сгенерирован ответ: [${ans_sel.answer}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${"Новый ген"}] \n\n`)
-                return true;
-            } catch (e) {
-                console.log(`Проблема отправки сообщения в чат: ${e}`)
-                return false;
-            }
+            res.answer = ans_sel.answer
+            res.info = ` Получено сообщение: [${res.text}] \n Исправление ошибок: [${ans_sel.qestion}] \n Сгенерирован ответ: [${ans_sel.answer}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${"SpeedBoost"}] \n\n`
+            res.status = true
         }
-    } else {
-        console.log(`Увы подбор не был завершен успешно для ${context.text}`);
-        return false;
     }
+    return res
 }

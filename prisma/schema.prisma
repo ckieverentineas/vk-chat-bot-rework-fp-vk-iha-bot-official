@@ -39,11 +39,17 @@ model Couple {
   position  Int        
   crdate DateTime @default(now())
 }
+model Question {
+  id      Int     @id @default(autoincrement())
+  text    String  @unique
+  answers Answer[]
+}
 
 model Answer {
-  id      Int    @id @default(autoincrement())
-  qestion String
-  answer  String
-  crdate DateTime @default(now())
-  @@unique([qestion, answer])
+  id         Int        @id @default(autoincrement())
+  qestion   String
+  answer     String
+  crdate     DateTime   @default(now())
+  id_question Int?
+  question   Question? @relation(fields: [id_question], references: [id])
 }

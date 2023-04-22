@@ -2,7 +2,7 @@ import { User } from "@prisma/client";
 import { HearManager } from "@vk-io/hear";
 import { IQuestionMessageContext } from "vk-io-question";
 import { root, tokenizer, tokenizer_sentence } from '../index';
-import { readDir, MultipleReader, MultipleReaderDictionary, MultipleReaderQuestion, MultipleReaderQuestionMod } from "./parser";
+import { readDir, MultipleReader, MultipleReaderDictionary, MultipleReaderQuestion, MultipleReaderQuestionMod, exportData, clearData } from "./parser";
 import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration, Answer_Duplicate_Clear, Sleep } from './helper';
 import prisma from "../module/prisma";
 import { randomInt } from "crypto";
@@ -149,7 +149,87 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             //await Answer_Duplicate_Clear(context)
         }
     })
+    hearManager.hear(/!migrate/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            await context.send(`Внимание, запущена одноразовая процедура для миграции +100500 данных, все действия в дальнейшем будут необратимы, бекапиться уже поздняк!`)
+            console.log(`Внимание, запущена одноразовая процедура для миграции +100500 данных, все действия в дальнейшем будут необратимы, бекапиться уже поздняк!`)
+            const count_answer = await prisma.answer.count({})
+            await context.send(`Мы насчитали ${count_answer} записей для пар из Вопросов и Ответов.`)
+            console.log(`Мы насчитали ${count_answer} записей для пар из Вопросов и Ответов.`)
+            await updateModel(context)
+            await context.send(`Первая стадия миграции успешно завершена. Удачи на второй ступени миграций!`)
+            console.log(`Первая стадия миграции успешно завершена. Удачи на второй ступени миграций!`)
+        }
+    })
+    hearManager.hear(/!dumping/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            await context.send(`Вы запустили процесс слива бд в тхт, давайте начнем`)
+            console.log(`Вы запустили процесс слива бд в тхт, давайте начнем`)
+            await exportData()
+            await context.send(`Вы завершили процесс слива бд в тхт, ладно`)
+            console.log(`Вы завершили процесс слива бд в тхт, ладно`)
+        }
+    })
+    hearManager.hear(/!clever/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            await context.send(`Вы запустили процесс чистки бд в тхт, давайте начнем`)
+            console.log(`Вы запустили процесс чистки бд в тхт, давайте начнем`)
+            await clearData(`data.txt`)
+            await context.send(`Вы завершили процесс чистки бд в тхт, ладно`)
+            console.log(`Вы завершили процесс чистки бд в тхт, ладно`)
+        }
+    })
 }
-
-
-    
+/*async function updateModel(context: any) {
+    // Заполняем таблицу Question данными из таблицы Answer
+    const distinctQuestions = await prisma.answer.findMany({ distinct: ['qestion'], select: { qestion: true } });
+    await context.send(`Из них вопросов является уникальными ${distinctQuestions.length} для записей пар из Вопросов и Ответов.`)
+    console.log(`Из них вопросов является уникальными ${distinctQuestions.length} для записей пар из Вопросов и Ответов.`)
+    for (const { qestion } of distinctQuestions) { await prisma.question.create({ data: { text: qestion } }) }
+    const count_question = await prisma.question.count({})
+    await context.send(`Было реорганизовано ${count_question} вопросов.`)
+    console.log(`Было реорганизовано ${count_question} вопросов.`)
+    // Обновляем таблицу Answer
+    const answers = await prisma.answer.findMany();
+    let counter = 0
+    for (const answer of answers) {
+        const question: any = await prisma.question.findUnique({ where: { text: answer.qestion } });
+        await prisma.answer.update({ where: { id: answer.id }, data: { id_question: question.id } });
+        counter++
+    }
+    await context.send(`Совершили перепривязку реогранизованных вопросов для ${counter} ответов.`)
+    console.log(`Совершили перепривязку реогранизованных вопросов для ${counter} ответов.`)
+}  */
+async function updateModel(context: any) {
+    // Проверяем, есть ли уникальные вопросы в таблице Question
+    const existingQuestions = await prisma.question.findMany();
+    const existingQuestionTexts = new Set(existingQuestions.map((question) => question.text));
+    const distinctQuestions = await prisma.answer.findMany({ distinct: ['qestion'], select: { qestion: true } });
+    const newQuestions = distinctQuestions.filter((question) => !existingQuestionTexts.has(question.qestion));
+    // Создаем новые вопросы, если они отсутствуют в таблице Question
+    let createdQuestions = [];
+    if (newQuestions.length > 0) {
+        for (const question of newQuestions) {
+            const createdQuestion = await prisma.question.create({ data: { text: question.qestion } });
+            console.log(`Мигрировал новый вопрос: ${createdQuestion.id} --> ${createdQuestion.text}`)
+            createdQuestions.push(createdQuestion);
+        }
+    }
+    await context.send(`Из них вопросов является уникальными ${distinctQuestions.length} для записей пар из Вопросов и Ответов.`);
+    console.log(`Из них вопросов является уникальными ${distinctQuestions.length} для записей пар из Вопросов и Ответов.`);
+    const countCreatedQuestions = createdQuestions.length;
+    await context.send(`Было создано ${countCreatedQuestions} новых вопросов.`);
+    console.log(`Было создано ${countCreatedQuestions} новых вопросов.`);
+    // Обновляем таблицу Answer
+    let updatedAnswersCount = 0;
+    for (const answer of await prisma.answer.findMany()) {
+        const question: any = existingQuestions.find((q) => q.text === answer.qestion) || createdQuestions.find((q) => q.text === answer.qestion);
+        if (question) {
+            console.log(`Устанвливаем связь для: ${question.text} --> ${question.id} <-- ${answer.id}`)
+            await prisma.answer.update({ where: { id: answer.id }, data: { id_question: question.id } });
+            updatedAnswersCount++;
+        }
+    }
+    await context.send(`Совершили перепривязку реорганизованных вопросов для ${updatedAnswersCount} ответов.`);
+    console.log(`Совершили перепривязку реорганизованных вопросов для ${updatedAnswersCount} ответов.`);
+}
