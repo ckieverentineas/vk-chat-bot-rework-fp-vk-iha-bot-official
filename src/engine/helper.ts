@@ -500,7 +500,7 @@ export async function Word_Count_Controller(context: any): Promise<boolean> {
     }
     const wordCount = tokenizer.tokenize(text);
      // задаем вероятности для каждого значения числа слов
-    const probabilities = [0.1, 0.4, 0.45, 0.05];
+    const probabilities = [0.05, 0.1, 0.35, 0.5];
 
     // создаем список границ для каждого значения числа слов
     const borders: any = probabilities.reduce((acc: any, curr, index) => {
@@ -510,9 +510,8 @@ export async function Word_Count_Controller(context: any): Promise<boolean> {
     // рандомизируем число слов в соответствии с заданными вероятностями
     const randomNum = Math.random();
     const numWords = borders.findIndex((border: number) => randomNum < border) + 1;
-    if (wordCount.length >= 50) { 
-        let words = text.split(/\s+/).slice(0, 200);
-        context.text = words.join(" ");
+    if (typeof context.text === 'string' && context.text.length >= randomInt(200, 250)) { 
+        context.text = context.text.substring(0, randomInt(150, 200));
     }
 
     // выбираем меньшее из двух значений
