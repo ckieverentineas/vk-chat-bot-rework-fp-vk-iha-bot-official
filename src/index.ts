@@ -1,12 +1,9 @@
-import { VK } from 'vk-io';
+import { MessageContext, VK } from 'vk-io';
 import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Answer_Core_Edition, Call_Me_Controller, Direct_Search, Engine_Answer, Engine_Answer_Wall, Re_Answer_controller, User_Ignore, User_Login, User_Registration, User_Say, User_ignore_Check, Word_Count_Controller } from './engine/helper';
-import prisma from './module/prisma';
-import { Analyzer_New_Age } from './module/reseach';
-import Engine_Generate_Last_Age from './module/reseacher_parallel';
+import { Answer_Core_Edition, Call_Me_Controller, Re_Answer_controller, User_Ignore, User_Login, User_Registration, User_Say, User_ignore_Check, Word_Count_Controller } from './engine/helper';
 //import { registerCommandRoutes } from './engine/command';
 const natural = require('natural');
 import * as dotenv from "dotenv";
@@ -73,11 +70,11 @@ for (const vk of vks) {
 	registerUserRoutes(hearManager)
 	//registerCommandRoutes(hearManager)
 	//миддлевар для предварительной обработки сообщений
-	vk.updates.on('message_new', async (context: any, next: any) => {
+	vk.updates.on('message_new', async (context: MessageContext, next) => {
 		console.log(`Пользователь ${context.senderId} прислал сообщение ${context.text} в ${context.isChat ? "Беседу" : "Личные сообщения"}`)
 		const regtrg = await User_Registration(context)
-		if (context.hasAttachments("sticker")) { context.text = 'стикер' }
-		if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.hasText) {
+		if (context.hasAttachments("sticker")) { context.text = 'стикер стикер стикер стикер' }
+		if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.text) {
 			//может  обвернем в единое окно проверок
 			if (regtrg) { await User_Ignore(context) }
 			const bot_memory = await User_Login(context)
@@ -128,6 +125,18 @@ for (const vk of vks) {
 		}
 		return await next();
 	})
+	/*vk.updates.on('friend_request', async (context: any, next) => {
+		console.log("🚀 ~ file: index.ts:132 ~ vk.updates.on ~ context:", context)
+		const { user_id } = context.payload;
+		try {
+		  await context.api.friends.add({ user_id });
+		  console.log(`Пользователь с id ${user_id} успешно добавлен в друзья`);
+		} catch (error) {
+		  console.error(`Не удалось добавить пользователя с id ${user_id} в друзья`, error);
+		}
+	  
+		return next();
+	  });*/
 	vk.updates.start().then(() => {
 		console.log('Бот успешно запущен и готов к эксплуатации!')
 	}).catch(console.log);

@@ -12,36 +12,29 @@ function findClosestMatch(query: string, sentences: string[]): string | undefine
       return "";
     }
   });
-
   // Разбиваем запрос на отдельные слова
   const tokenizer = new WordTokenizer();
   const queryWords = tokenizer.tokenize(query);
-
   // Извлекаем контекст из запроса пользователя
   const contextWords = queryWords;
-
   // Вычисляем схожесть между каждым предложением и запросом,
   // используя функцию JaroWinklerDistance из модуля "natural"
   const matches = sentencesLower.map(sentenceLower => ({
     sentence: sentenceLower,
     score: JaroWinklerDistance(query, sentenceLower, {})
   }));
-
   // Отбираем только те предложения, которые имеют сходство выше некоторого порога
   const threshold = 0.8;
   const filteredMatches = matches.filter(match => match.score >= threshold);
-
   // Если нет ни одного предложения, которое имеет достаточное сходство с запросом,
   // возвращаем undefined
   if (filteredMatches.length === 0) {
     return undefined;
   }
-
   // Находим предложение с наибольшим сходством
   const bestMatch = filteredMatches.reduce((prev, current) => {
     return prev.score > current.score ? prev : current;
   });
-
   return bestMatch.sentence;
 }
 
