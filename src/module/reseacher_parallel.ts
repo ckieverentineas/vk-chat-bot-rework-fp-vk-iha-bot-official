@@ -1,5 +1,5 @@
 import { tokenizer, tokenizer_sentence } from "..";
-import { WordTokenizer, JaroWinklerDistance, DamerauLevenshteinDistance } from "natural";
+import { JaroWinklerDistance, DamerauLevenshteinDistance } from "natural";
 import prisma from "./prisma";
 import { findBestMatch } from "string-similarity";
 import { distance as levenshteinDistance } from 'fastest-levenshtein';
@@ -25,14 +25,14 @@ async function* Generator_Sentence() {
 }
 
 function findClosestMatch(query: string, sentences: string[]): { sentence: string, query: string } | undefined {
+  const filteredSentences = sentences?.filter(sentence => sentence !== undefined && sentence !== null && sentence.trim() !== '') ?? [];
+    if (filteredSentences.length === 0) {
+        return undefined;
+    }
+  const threshold = 0.3;
   // Приводим запрос и предложения к нижнему регистру
   query = query.toLowerCase();
-  const sentencesLower = sentences.map(sentence => sentence.toLowerCase());
-  // Разбиваем запрос на отдельные слова
-  const tokenizer = new WordTokenizer();
-  const queryWords = tokenizer.tokenize(query);
-  // Извлекаем контекст из запроса пользователя
-  const contextWords = queryWords;
+  const sentencesLower = filteredSentences.map(sentence => sentence.toLowerCase());
   // Вычисляем схожесть между каждым предложением и запросом,
   // используя функции JaroWinklerDistance, LevenshteinDistance и cosineSimilarity
   const matches: Match[] = sentencesLower.map(sentenceLower => {
@@ -45,11 +45,7 @@ function findClosestMatch(query: string, sentences: string[]): { sentence: strin
   // Сортируем результаты по убыванию схожести
   matches.sort((a, b) => b.score - a.score);
   // Находим наилучшее совпадение, учитывая контекст
-  const bestMatch = matches.find(match => {
-    const matchWords = tokenizer.tokenize(match.sentence);
-    const intersection = matchWords.filter(word => contextWords.includes(word));
-    return intersection.length > 0;
-  });
+  const bestMatch = matches.filter(match => match.score >= threshold)[0];
   // Если нашлось хотя бы одно совпадение, возвращаем его
   if (bestMatch) { return { sentence: bestMatch.sentence, query }; } else { return undefined; }
 }

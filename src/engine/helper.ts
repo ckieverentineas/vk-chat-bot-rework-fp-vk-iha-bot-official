@@ -6,6 +6,7 @@ import prisma from "../module/prisma";
 import Engine_Generate_Last_Age from "../module/reseacher_parallel";
 import { Analyzer_New_Age } from "../module/reseach";
 import { MessageContext } from "vk-io";
+import Engine_Generate_End_Generation from "../module/reseacher_new";
 const getSlug  = require('speakingurl');
 const Fuse = require("fuse.js")
 const translate = require('secret-package-for-my-own-use');
@@ -454,8 +455,11 @@ export async function Direct_Search(res: { text: string, answer: string, info: s
 }
 
 export async function Answer_Core_Edition(res: { text: string, answer: string, info: string, status: boolean }, context: any) {
+    
 	res = await Direct_Search(res)
 	console.log(`DirectBoost ${res.status ? "{X}" : "{V}"} ${context.senderId} --> ${context.text} <-- ${res.status ? "{Success}" : "{NotFound}"}`)
+    /*res = !res.status ? await Engine_Generate_End_Generation(res) : res
+    console.log(`NewBoost  ${res.status ? "{X}" : "{V}"} ${context.senderId} --> ${context.text} <-- ${res.status ? "{Success}" : "{NotFound}"}`)*/
 	res = !res.status ? await Engine_Generate_Last_Age(res) : res
 	console.log(`MultiBoost  ${res.status ? "{X}" : "{V}"} ${context.senderId} --> ${context.text} <-- ${res.status ? "{Success}" : "{NotFound}"}`)
 	res = !res.status ? await Analyzer_New_Age(res) : res
