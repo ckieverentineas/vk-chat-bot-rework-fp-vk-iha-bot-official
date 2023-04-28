@@ -1,6 +1,6 @@
-import { tokenizer, tokenizer_sentence } from "..";
+import { tokenizer, tokenizer_sentence } from "../..";
 import { JaroWinklerDistance, DamerauLevenshteinDistance } from "natural";
-import prisma from "./prisma";
+import prisma from "../../module/prisma";
 import { findBestMatch } from "string-similarity";
 import { distance as levenshteinDistance } from 'fastest-levenshtein';
 import { compareTwoStrings } from 'string-similarity';

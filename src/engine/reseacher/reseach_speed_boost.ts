@@ -1,5 +1,5 @@
 import { WordTokenizer, JaroWinklerDistance } from "natural";
-import prisma from "./prisma";
+import prisma from "../../module/prisma";
 import { Answer } from "@prisma/client";
 
 function findClosestMatch(query: string, sentences: string[]): string | undefined {
@@ -39,19 +39,20 @@ function findClosestMatch(query: string, sentences: string[]): string | undefine
 }
 
 async function* Generator_Sentence() {
-    const batchSize = 100000;
-    let cursor: number | undefined = undefined;
-    while (true) {
-        const sentences: any = await prisma.answer.findMany({
-            take: batchSize,
-            skip: cursor ? 1 : 0,
-            cursor: cursor ? { id: cursor } : undefined,
-            orderBy: { id: 'asc' },
-        });
-        if (!sentences.length) break;
-        yield sentences;
-        cursor = sentences[sentences.length - 1].id;
-    }
+  const batchSize = 100000;
+  let cursor: number | undefined = undefined;
+  
+  while (true) {
+    const sentences: any = await prisma.$queryRaw`
+      SELECT id, qestion FROM Answer
+      WHERE id > ${cursor ?? 0}
+      ORDER BY id ASC
+      LIMIT ${batchSize}
+    `;
+    if (!sentences.length) break;
+    yield sentences;
+    cursor = sentences[sentences.length - 1].id;
+  }
 }
 
 export async function Analyzer_New_Age(res: { text: string, answer: string, info: string, status: boolean}) {

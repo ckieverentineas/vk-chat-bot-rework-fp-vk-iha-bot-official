@@ -3,10 +3,12 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { Answer_Core_Edition, Call_Me_Controller, Re_Answer_controller, User_Ignore, User_Login, User_Registration, User_Say, User_ignore_Check, Word_Count_Controller } from './engine/helper';
+import { User_Ignore, User_Login, User_Registration, User_Say, User_ignore_Check } from './engine/helper';
 //import { registerCommandRoutes } from './engine/command';
 const natural = require('natural');
 import * as dotenv from "dotenv";
+import { Analyzer_Core_Edition } from './engine/core/analyzer_controller';
+import { Answer_Core_Edition } from './engine/core/reseacher_controller';
 dotenv.config();
 
 
@@ -80,12 +82,8 @@ for (const vk of vks) {
 			const bot_memory = await User_Login(context)
 			if (!bot_memory) { return  await next() }
 			if (context.isChat) {
-				const call_me_check = await Call_Me_Controller(context.text)
-				if (call_me_check) { return await next() }
-				const re_answer_check = await Re_Answer_controller(context)
-				if (re_answer_check) { return await next() }
-				const word_controller = await Word_Count_Controller(context)
-				if (word_controller) { return await next() }
+				const checker = await Analyzer_Core_Edition(context)
+				if (checker) { return await next() }
 			}
 			if (await User_Say(context) == false) { return await next() }
 			//модуль гена
@@ -106,10 +104,8 @@ for (const vk of vks) {
 		const regtrg = await User_Registration(context)
 		if (context.hasAttachments("sticker")) { context.text = 'стикер' }
 		if (context.fromId > 0 && context.text) {
-			const call_me_check = await Call_Me_Controller(context.text)
-			if (call_me_check) { return await next() }
-			const word_controller = await Word_Count_Controller(context)
-			if (word_controller) { return await next() }
+			const checker = await Analyzer_Core_Edition(context)
+			if (checker) { return await next() }
 			if (await User_Say(context) == false) { return await next() }
 			//модуль гена
 			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)

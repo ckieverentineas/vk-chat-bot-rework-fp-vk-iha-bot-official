@@ -1,6 +1,6 @@
-import { tokenizer, tokenizer_sentence } from "..";
+import { tokenizer, tokenizer_sentence } from "../..";
 import { WordTokenizer, DamerauLevenshteinDistance} from "natural";
-import prisma from "./prisma";
+import prisma from "../../module/prisma";
 import { compareTwoStrings } from 'string-similarity';
 
 function tokenizeText(text: string): string[][] {
@@ -9,16 +9,22 @@ function tokenizeText(text: string): string[][] {
     return words;
   }
 
-async function* Generator_Sentence() {
-  const batchSize = 100000;
-  let cursor: number | undefined = undefined;
-  while (true) {
-    const sentences: any = await prisma.answer.findMany({ take: batchSize, skip: cursor ?? 0, cursor: cursor ? { id: cursor } : undefined, orderBy: { id: 'asc' } });
-    if (!sentences.length) break;
-    yield sentences;
-    cursor = sentences[sentences.length - 1].id;
+  async function* Generator_Sentence() {
+    const batchSize = 100000;
+    let cursor: number | undefined = undefined;
+    
+    while (true) {
+      const sentences: any = await prisma.$queryRaw`
+        SELECT id, qestion FROM Answer
+        WHERE id > ${cursor ?? 0}
+        ORDER BY id ASC
+        LIMIT ${batchSize}
+      `;
+      if (!sentences.length) break;
+      yield sentences;
+      cursor = sentences[sentences.length - 1].id;
+    }
   }
-}
 
 function findClosestMatch(query: string, sentences: string[]): { sentence: string, query: string } | undefined {
     const filteredSentences = sentences?.filter(sentence => sentence !== undefined && sentence !== null && sentence.trim() !== '') ?? [];

@@ -2,66 +2,34 @@ import { User } from "@prisma/client";
 import { HearManager } from "@vk-io/hear";
 import { IQuestionMessageContext } from "vk-io-question";
 import { root, tokenizer, tokenizer_sentence } from '../index';
-import { readDir, MultipleReader, MultipleReaderDictionary, MultipleReaderQuestion, MultipleReaderQuestionMod, exportData, clearData } from "./parser";
-import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration, Answer_Duplicate_Clear, Sleep } from './helper';
+import { readDir, MultipleReaderQuestion, MultipleReaderQuestionMod, exportData, clearData, parseAndSaveData } from "./parser";
+import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration, Sleep } from './helper';
 import prisma from "../module/prisma";
 import { randomInt } from "crypto";
 
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
-    hearManager.hear(/!пара/, async (context) => {
-        if (context.isOutbox == false && context.senderId == root) {
-            const dir = `./src/book`
-            const file_name: any = await readDir(dir)
-            for (const file of file_name) {
-                await MultipleReader(dir, file, context)
-            }
-        }
-    })
-    hearManager.hear(/!словарь/, async (context) => {
-        if (context.isOutbox == false && context.senderId == root) {
-            const dir = `./src/book`
-            const file_name: any = await readDir(dir)
-            for (const file of file_name) {
-                await MultipleReaderDictionary(dir, file, context)
-            }
-        }
-    })
     hearManager.hear(/!база/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             const dir = `./src/book`
             const file_name: any = await readDir(dir)
             for (const file of file_name) {
-                await MultipleReaderQuestion(dir, file, context)
-            }
-        }
-    })
-    hearManager.hear(/!базомод/, async (context) => {
-        if (context.isOutbox == false && context.senderId == root) {
-            const dir = `./src/book`
-            const file_name: any = await readDir(dir)
-            for (const file of file_name) {
-                await MultipleReaderQuestionMod(dir, file, context)
+                await parseAndSaveData(`${dir}/${file}`, context)
             }
         }
     })
     hearManager.hear(/!конфиг/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
-            const count_dict = await prisma.dictionary.count({})
-            const count_couple = await prisma.couple.count({})
             const count_answer = await prisma.answer.count({})
-            await context.send(`Панель администратора: \n 👤 Личные сообщения: Разрешены \n 👥 Беседы: Разрешены \n ⚙ Защиты: ✅Антиспам ✅"Я не повторяюсь" \n 📜 Генератор: Слов в словаре, ${count_dict} Парных связей, ${count_couple} \n 📚 Количество вопросов с ответами: ${count_answer}`)
+            await context.send(`Панель администратора: \n 🔸 Версия: 0.0.75 Pre-Alpha Building \n 👤 Личные сообщения: Разрешены \n 👥 Беседы: Разрешены \n ⚙ Защиты: ✅Антиспам ✅"Я не повторяюсь" \n 📚 Количество вопросов с ответами: ${count_answer} \n\n 📝 Поисковые движки: \n 🔍 DirectBoost - ищет ответы 1 к 1; \n 🔍 MultiBoost - ищет для кучи предложений нечетко; \n 🔍 SpeedBoost - ищет нечетко самое первое вхождение.`)
         }
     })
     hearManager.hear(/!помощь/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             await context.send(`☠ Команды бота уже сделанные: \n
-                \n⚙ !словарь - пополняет словарный запас бота на все еще не встреченные слова до этого, нужен для нечеткого поиска в базе данных и становления связей*
-                \n⚙ !пара - устанавливает парные связи слов на основе существующего словаря и чтения книг*
                 \n⚙ !база - считывает тхт формата: Вопрос\\Ответ и все что до второй , остальное нам нафиг не надо. закидывая вопрос-ответы в базу данных
-                \n⚙ !базомод - считывает тхт формата: Вопрос \\n Ответ \\r\\n ... Вопрос \\n Ответ \\r\\n закидывая вопрос-ответы в базу данных
                 \n⚙ !конфиг - показывает текущую конфигурацию бота
-                \n⚙ !мутинг idvk - где idvk, пишем уникальный идентификатор пользователя вк, для включения или отключения режима его игнорирования
+                \n⚙ !игнор idvk - где idvk, пишем уникальный идентификатор пользователя вк, для включения или отключения режима его игнорирования
                 \n⚙ !инфа - выдает информацию о вас и вашем статусе для релевантности бота, конечно вам покажут не все=)
                 \n⚙ !юзердроп - удаляет всех пользователей
                 \n💡 По пути ./src/book/ кладем в директорию (папку) книгу/answer_database в txt формата, и вначале выполняем команду словарь, по ее окончанию обучение.
@@ -69,7 +37,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             )
         }
     })
-    hearManager.hear(/!мутинг/, async (context) => {
+    hearManager.hear(/!игнор/, async (context) => {
         if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
             const target: number = Number(context.text.replace(/[^0-9]/g,"")) || 0
             if (target > 0) {
@@ -111,14 +79,6 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             if (user) {
                 await context.send(` 👤 Имя: @id${user.idvk}(${info.first_name}): \n\n 💳 Порядковый номер: ${user.id} \n 🎥 Кремлевский номер: ${user.idvk} \n ⚠ Получено предупреждений: ${user.warning}/3 \n ⚰ Дата резервации: ${user.crdate} \n ⛓ Статус: ${user.ignore ? 'В стоп-листе' : 'Законопослушны'}`)
             }
-        }
-    })
-    hearManager.hear(/!дубли/, async (context) => {
-        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
-            const counter = await prisma.answer.count({})
-            await context.send(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов. Не использовать`)
-            console.log(`Поиск дубликатов... Сейчас есть ${counter} вопрос-ответов.`)
-            //await Answer_Duplicate_Clear(context)
         }
     })
     hearManager.hear(/!проверка/, async (context) => {
