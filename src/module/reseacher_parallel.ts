@@ -16,8 +16,14 @@ function tokenizeText(text: string): string[][] {
 async function* Generator_Sentence() {
   const batchSize = 100000;
   let cursor: number | undefined = undefined;
+  
   while (true) {
-    const sentences: any = await prisma.answer.findMany({ take: batchSize, skip: cursor ?? 0, cursor: cursor ? { id: cursor } : undefined, orderBy: { id: 'asc' } });
+    const sentences: any = await prisma.$queryRaw`
+      SELECT id, qestion FROM Answer
+      WHERE id > ${cursor ?? 0}
+      ORDER BY id ASC
+      LIMIT ${batchSize}
+    `;
     if (!sentences.length) break;
     yield sentences;
     cursor = sentences[sentences.length - 1].id;
