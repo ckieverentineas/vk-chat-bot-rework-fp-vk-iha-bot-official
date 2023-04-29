@@ -1,9 +1,9 @@
 import { User } from "@prisma/client";
 import { HearManager } from "@vk-io/hear";
 import { IQuestionMessageContext } from "vk-io-question";
-import { root, tokenizer, tokenizer_sentence } from '../index';
+import { root, starting_date, tokenizer, tokenizer_sentence } from '../index';
 import { readDir, MultipleReaderQuestion, MultipleReaderQuestionMod, exportData, clearData, parseAndSaveData } from "./parser";
-import { User_ignore_Check, User_Info, User_Ignore, User_Login, User_Registration, Sleep } from './helper';
+import { User_ignore_Check, User_Info, User_Registration, Sleep } from './helper';
 import prisma from "../module/prisma";
 import { randomInt } from "crypto";
 
@@ -38,7 +38,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
     })
     hearManager.hear(/!игнор/, async (context) => {
-        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+        if (context.isOutbox == false && context.senderId == root && context.text) {
             const target: number = Number(context.text.replace(/[^0-9]/g,"")) || 0
             if (target > 0) {
                 const user: any = await prisma.user.findFirst({ where: { idvk: target } })
@@ -54,7 +54,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
     })
     hearManager.hear(/!юзердроп/, async (context) => {
-        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+        if (context.isOutbox == false && context.senderId == root) {
             const user: User[] | null = await prisma.user.findMany({})
             if (user && user.length >= 1) {
                 for (const i in user) {
@@ -69,11 +69,9 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
     })
     hearManager.hear(/!инфа/, async (context) => {
-        const regtrg = await User_Registration(context)
-        if (context.isOutbox == false && context?.text != undefined /*&& await User_ignore_Check(context)*/) {
-            if (regtrg) { await User_Ignore(context) }
-            const bot_memory = await User_Login(context)
-            if (!bot_memory) { return }
+        await User_Registration(context)
+        if (await User_ignore_Check(context)) { return; }
+        if (context.isOutbox == false) {
             const user: User | null = await prisma.user.findFirst({ where: { idvk: context.senderId } })
             const info: any = await User_Info(context)
             if (user) {
@@ -139,6 +137,19 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             console.log(`Вы завершили процесс чистки бд в тхт, ладно`)
         }
     })
+    hearManager.hear(/!аптайм/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            const now = new Date();
+            const diff = now.getTime() - starting_date.getTime();
+            const timeUnits = [
+                { unit: "дней", value: Math.floor(diff / 1000 / 60 / 60 / 24) },
+                { unit: "часов", value: Math.floor((diff / 1000 / 60 / 60) % 24) },
+                { unit: "минут", value: Math.floor((diff / 1000 / 60) % 60) },
+                { unit: "секунд", value: Math.floor((diff / 1000) % 60) },
+            ];
+            await context.send(`Время работы: ${timeUnits.filter(({ value }) => value > 0).map(({ unit, value }) => `${value} ${unit}`).join(" ")}`);
+        }
+    })
 }
 /*async function updateModel(context: any) {
     // Заполняем таблицу Question данными из таблицы Answer
@@ -182,10 +193,10 @@ async function updateModel(context: any) {
     console.log(`Было создано ${countCreatedQuestions} новых вопросов.`);
     // Обновляем таблицу Answer
     let updatedAnswersCount = 0;
-    for (const answer of await prisma.answer.findMany()) {
+    for (const answer of await prisma.answer.findMany({ where: { id_question: null } })) {
         const question: any = existingQuestions.find((q) => q.text === answer.qestion) || createdQuestions.find((q) => q.text === answer.qestion);
         if (question) {
-            console.log(`Устанвливаем связь для: ${question.text} --> ${question.id} <-- ${answer.id}`)
+            console.log(`Устанавливаем связь для: ${question.text} --> ${question.id} <-- ${answer.id}`)
             await prisma.answer.update({ where: { id: answer.id }, data: { id_question: question.id } });
             updatedAnswersCount++;
         }

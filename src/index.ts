@@ -3,12 +3,15 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { User_Ignore, User_Login, User_Registration, User_Say, User_ignore_Check } from './engine/helper';
+import { User_Registration, User_ignore_Check } from './engine/helper';
 //import { registerCommandRoutes } from './engine/command';
 const natural = require('natural');
 import * as dotenv from "dotenv";
 import { Analyzer_Core_Edition } from './engine/core/analyzer_controller';
 import { Answer_Core_Edition } from './engine/core/reseacher_controller';
+import { updateStatuses } from './module/status_changer';
+import { randomInt } from 'crypto';
+import prisma from './module/prisma';
 dotenv.config();
 
 
@@ -21,6 +24,8 @@ const hearManager = new HearManager<IQuestionMessageContext>();
 
 export const tokenizer = new natural.AggressiveTokenizerRu()
 export const tokenizer_sentence = new natural.SentenceTokenizer()
+export const starting_date = new Date(); // время работы бота
+
 /* раскоментировать для того, чтобы лицезреть процесс поиска ответов
 prisma.$use(async (params, next) => {
 	const before = Date.now()
@@ -73,22 +78,19 @@ for (const vk of vks) {
 	//registerCommandRoutes(hearManager)
 	//миддлевар для предварительной обработки сообщений
 	vk.updates.on('message_new', async (context: MessageContext, next) => {
+		await User_Registration(context)
+		if (await User_ignore_Check(context)) { return await next(); }
 		console.log(`Пользователь ${context.senderId} прислал сообщение ${context.text} в ${context.isChat ? "Беседу" : "Личные сообщения"}`)
-		const regtrg = await User_Registration(context)
 		if (context.hasAttachments("sticker")) { context.text = 'стикер стикер стикер стикер' }
-		if (context.isOutbox == false && await User_ignore_Check(context) && context.senderId > 0 && context.text) {
+		if (context.isOutbox == false && context.senderId > 0 && context.text) {
 			//может  обвернем в единое окно проверок
-			if (regtrg) { await User_Ignore(context) }
-			const bot_memory = await User_Login(context)
-			if (!bot_memory) { return  await next() }
-			if (context.isChat) {
-				const checker = await Analyzer_Core_Edition(context)
-				if (checker) { return await next() }
-			}
-			if (await User_Say(context) == false) { return await next() }
+			const checker = await Analyzer_Core_Edition(context)
+			if (checker) { return await next() }
+			await context.setActivity();
 			//модуль гена
 			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)
 			if (!res.status) { console.log(res.info); return await next() }
+			const save_ans = await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer.replace(/\r?\n|\r/g, "") } })
 			try { 
 				if (context.isChat) { await context.reply(`${res.answer}`) } else { await context.send(`${res.answer}`) }
 				console.log(res.info)
@@ -100,16 +102,17 @@ for (const vk of vks) {
 	})
 	vk.updates.on('wall_reply_new', async (context: any, next: any) => {
 		context.senderId = context.fromId
+		await User_Registration(context)
+		if (await User_ignore_Check(context)) { return await next(); }
 		console.log(`Пользователь ${context.senderId} прислал сообщение ${context.text} на стену группы`)
-		const regtrg = await User_Registration(context)
-		if (context.hasAttachments("sticker")) { context.text = 'стикер' }
+		if (context.hasAttachments("sticker")) { context.text = 'стикер стикер стикер стикер' }
 		if (context.fromId > 0 && context.text) {
 			const checker = await Analyzer_Core_Edition(context)
 			if (checker) { return await next() }
-			if (await User_Say(context) == false) { return await next() }
 			//модуль гена
 			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)
 			if (!res.status) { console.log(res.info); return await next() }
+			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer } })
 			try {
 				if (context.isWallComment) {
 					await context.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${res.answer}`})
@@ -137,3 +140,5 @@ for (const vk of vks) {
 		console.log('Бот успешно запущен и готов к эксплуатации!')
 	}).catch(console.log);
 }
+
+setInterval(updateStatuses, randomInt(2,10) * 60 * 1000);

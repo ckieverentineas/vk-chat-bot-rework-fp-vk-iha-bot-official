@@ -10,8 +10,7 @@ datasource db {
 model User {
   id Int @id @default(autoincrement())
   idvk Int @unique
-  last String @default(" ")
-  lastlast String @default(" ")
+  say_me String @default(" ")
   say String @default(" ")
   memorytrg Boolean @default(false)
   ignore Boolean @default(false)
