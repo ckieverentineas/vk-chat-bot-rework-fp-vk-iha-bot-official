@@ -3,7 +3,6 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-import { User_Registration, User_ignore_Check } from './engine/helper';
 //import { registerCommandRoutes } from './engine/command';
 const natural = require('natural');
 import * as dotenv from "dotenv";
@@ -12,6 +11,7 @@ import { Answer_Core_Edition } from './engine/core/reseacher_controller';
 import { updateStatuses } from './module/status_changer';
 import { randomInt } from 'crypto';
 import prisma from './module/prisma';
+import { Prefab_Engine } from './engine/prefab/prefab_engine';
 dotenv.config();
 
 
@@ -78,20 +78,21 @@ for (const vk of vks) {
 	//registerCommandRoutes(hearManager)
 	//миддлевар для предварительной обработки сообщений
 	vk.updates.on('message_new', async (context: MessageContext, next) => {
-		await User_Registration(context)
-		if (await User_ignore_Check(context)) { return await next(); }
-		console.log(`Пользователь ${context.senderId} прислал сообщение ${context.text} в ${context.isChat ? "Беседу" : "Личные сообщения"}`)
-		if (context.hasAttachments("sticker")) { context.text = 'стикер стикер стикер стикер' }
+		//модуль предобработки сообщений
+		if (await Prefab_Engine(context)) { return await next() }
 		if (context.isOutbox == false && context.senderId > 0 && context.text) {
-			//может  обвернем в единое окно проверок
-			const checker = await Analyzer_Core_Edition(context)
-			if (checker) { return await next() }
+			//обрабатываем входящее сообщение
+			//активация модулей класса анализаторов
+			if (await Analyzer_Core_Edition(context)) { return await next() }
+			//запускаем режим печатания сообщения
 			await context.setActivity();
-			//модуль гена
+			//ищем самый оптимальный вариант ответа на сообщение пользователя
 			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)
 			if (!res.status) { console.log(res.info); return await next() }
-			const save_ans = await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer.replace(/\r?\n|\r/g, "") } })
+			//сохраняем ответ пользователя для анализатора
+			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer.replace(/\r?\n|\r/g, "") } })
 			try { 
+				//отправляем оптимальный ответ пользователю
 				if (context.isChat) { await context.reply(`${res.answer}`) } else { await context.send(`${res.answer}`) }
 				console.log(res.info)
 			} catch (e) {
@@ -101,20 +102,22 @@ for (const vk of vks) {
 		return await next();
 	})
 	vk.updates.on('wall_reply_new', async (context: any, next: any) => {
+		//событие отличается но подшаманим под классику жанра
 		context.senderId = context.fromId
-		await User_Registration(context)
-		if (await User_ignore_Check(context)) { return await next(); }
-		console.log(`Пользователь ${context.senderId} прислал сообщение ${context.text} на стену группы`)
-		if (context.hasAttachments("sticker")) { context.text = 'стикер стикер стикер стикер' }
+		//модуль предобработки сообщений
+		if (await Prefab_Engine(context)) { return await next() }
 		if (context.fromId > 0 && context.text) {
-			const checker = await Analyzer_Core_Edition(context)
-			if (checker) { return await next() }
-			//модуль гена
+			//обрабатываем входящее сообщение на стене
+			//активация модулей класса анализаторов
+			if (await Analyzer_Core_Edition(context)) { return await next() }
+			//ищем самый оптимальный вариант ответа на сообщение пользователя
 			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)
 			if (!res.status) { console.log(res.info); return await next() }
+			//сохраняем ответ пользователя для анализатора
 			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer } })
 			try {
 				if (context.isWallComment) {
+					//отправляем оптимальный ответ пользователю на стене
 					await context.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${res.answer}`})
 					console.log(res.info)
 				}
@@ -140,5 +143,5 @@ for (const vk of vks) {
 		console.log('Бот успешно запущен и готов к эксплуатации!')
 	}).catch(console.log);
 }
-
+//запуск автостатуса каждые 2-10 минут
 setInterval(updateStatuses, randomInt(2,10) * 60 * 1000);

@@ -3,10 +3,10 @@ import { HearManager } from "@vk-io/hear";
 import { IQuestionMessageContext } from "vk-io-question";
 import { root, starting_date, tokenizer, tokenizer_sentence } from '../index';
 import { readDir, MultipleReaderQuestion, MultipleReaderQuestionMod, exportData, clearData, parseAndSaveData } from "./parser";
-import { User_ignore_Check, User_Info, User_Registration, Sleep } from './helper';
+import { User_Info, Sleep } from './helper';
 import prisma from "../module/prisma";
 import { randomInt } from "crypto";
-
+import { Prefab_Engine } from './prefab/prefab_engine';
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!база/, async (context) => {
@@ -21,7 +21,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
     hearManager.hear(/!конфиг/, async (context) => {
         if (context.isOutbox == false && context.senderId == root) {
             const count_answer = await prisma.answer.count({})
-            await context.send(`Панель администратора: \n 🔸 Версия: 0.0.75 Pre-Alpha Building \n 👤 Личные сообщения: Разрешены \n 👥 Беседы: Разрешены \n ⚙ Защиты: ✅Антиспам ✅"Я не повторяюсь" \n 📚 Количество вопросов с ответами: ${count_answer} \n\n 📝 Поисковые движки: \n 🔍 DirectBoost - ищет ответы 1 к 1; \n 🔍 MultiBoost - ищет для кучи предложений нечетко; \n 🔍 SpeedBoost - ищет нечетко самое первое вхождение.`)
+            await context.send(`Панель администратора: \n 🔸 Версия: 0.0.77 Pre-Alpha Building \n 👤 Личные сообщения: Разрешены \n 👥 Беседы: Разрешены \n ⚙ Защиты: ✅Антиспам ✅"Я не повторяюсь" \n 📚 Количество вопросов с ответами: ${count_answer} \n\n 📝 Поисковые движки: \n 🔍 DirectBoost - ищет ответы 1 к 1; \n 🔍 MultiBoost - ищет для кучи предложений нечетко; \n 🔍 SpeedBoost - ищет нечетко самое первое вхождение.`)
         }
     })
     hearManager.hear(/!помощь/, async (context) => {
@@ -69,13 +69,12 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
         }
     })
     hearManager.hear(/!инфа/, async (context) => {
-        await User_Registration(context)
-        if (await User_ignore_Check(context)) { return; }
+        if (await Prefab_Engine(context)) { return; }
         if (context.isOutbox == false) {
             const user: User | null = await prisma.user.findFirst({ where: { idvk: context.senderId } })
             const info: any = await User_Info(context)
             if (user) {
-                await context.send(` 👤 Имя: @id${user.idvk}(${info.first_name}): \n\n 💳 Порядковый номер: ${user.id} \n 🎥 Кремлевский номер: ${user.idvk} \n ⚠ Получено предупреждений: ${user.warning}/3 \n ⚰ Дата резервации: ${user.crdate} \n ⛓ Статус: ${user.ignore ? 'В стоп-листе' : 'Законопослушны'}`)
+                await context.send(` 👤 Имя: @id${user.idvk}(${info.first_name}): \n\n 💳 Порядковый номер: ${user.id} \n 🎥 Кремлевский номер: ${user.idvk} \n ⚠ Получено предупреждений: ${user.warning}/3 \n ⚰ Дата резервации: ${user.crdate} \n ⛓ Статус: ${user.ignore ? 'В стоп-листе' : 'Законопослушны'} \n 🔸 Находитесь в капсуле: 0.0.77 Pre-Alpha Building \n `)
             }
         }
     })
