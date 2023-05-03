@@ -7,30 +7,30 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
 model User {
-  id Int @id @default(autoincrement())
-  idvk Int @unique
-  say_me String @default(" ")
-  say String @default(" ")
-  memorytrg Boolean @default(false)
-  ignore Boolean @default(false)
-  warning Int @default(0)
-  count Int @default(0)
-  crdate DateTime @default(now())
-  update DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  idvk      Int      @unique
+  say_me    String   @default("")
+  say       String   @default("")
+  memorytrg Boolean  @default(false)
+  ignore    Boolean  @default(false)
+  warning   Int      @default(0)
+  count     Int      @default(0)
+  crdate    DateTime @default(now())
+  update    DateTime @default(now())
 }
 
 model Question {
-  id      Int     @id @default(autoincrement())
-  text    String  @unique
+  id      Int      @id @default(autoincrement())
+  text    String   @unique
   answers Answer[]
 }
 
 model Answer {
-  id         Int        @id @default(autoincrement())
-  qestion   String
-  answer     String
-  crdate     DateTime   @default(now())
-  id_question Int?
-  question   Question? @relation(fields: [id_question], references: [id])
+  id          Int      @id @default(autoincrement())
+  answer      String
+  crdate      DateTime @default(now())
+  id_question Int
+  question    Question @relation(fields: [id_question], references: [id])
 }
