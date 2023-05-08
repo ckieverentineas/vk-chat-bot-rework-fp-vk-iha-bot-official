@@ -1,4 +1,3 @@
-import { Answer } from "@prisma/client";
 import prisma from "../../module/prisma";
 
 export async function Direct_Search(res: { text: string, answer: string, info: string, status: boolean}, data_old: number) {

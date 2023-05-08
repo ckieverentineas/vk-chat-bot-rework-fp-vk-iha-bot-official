@@ -1,4 +1,4 @@
-import { Context, MessageContext } from "vk-io"
+import { Context } from "vk-io"
 import { Anti_Spam_Engine } from "../analyzer/answer_antispam_defender"
 import { Call_Me_Controller } from "../analyzer/answer_call_me_controller"
 import { User_Say_How_I } from "../analyzer/answer_repeater_say_check"

@@ -1,4 +1,4 @@
-import { Context, MessageContext } from "vk-io";
+import { Context } from "vk-io";
 import prisma from "../../module/prisma";
 
 async function User_Registration(context: any) {

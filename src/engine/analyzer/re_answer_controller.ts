@@ -1,4 +1,4 @@
-import { Context, MessageContext } from "vk-io";
+import { Context } from "vk-io";
 import { vks_info } from "../..";
 
 export async function Re_Answer_controller(context: Context): Promise<boolean> {

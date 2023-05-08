@@ -1,9 +1,7 @@
 import { Unknown } from "@prisma/client";
 import prisma from "../../module/prisma";
-import { JaroWinklerDistance, DamerauLevenshteinDistance } from "natural";
-import { distance as levenshteinDistance } from 'fastest-levenshtein';
 import { compareTwoStrings } from 'string-similarity';
-import { Context, MessageContext } from "vk-io";
+import { Context } from "vk-io";
 
 export async function Add_Unknown(text: string): Promise<Unknown | false> {
     const batchSize = 100000;

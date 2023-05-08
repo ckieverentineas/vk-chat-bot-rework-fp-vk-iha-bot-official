@@ -1,4 +1,4 @@
-import { Context, MessageContext } from "vk-io";
+import { Context } from "vk-io";
 import { vks_info } from "../..";
 
 function extractMentions(text: string): Array<{ id: number, name: string, type: "user" | "club" }> {
