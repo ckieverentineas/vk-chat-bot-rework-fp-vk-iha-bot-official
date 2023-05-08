@@ -7,6 +7,7 @@ import prisma from "../module/prisma";
 import { randomInt } from "crypto";
 import { Prefab_Engine } from './prefab/prefab_engine';
 import { Save_Answers_and_Question_In_DB, exportQuestionsAndAnswers } from "./parser";
+import { Education_Engine } from "./education/education_egine";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!база/, async (context) => {
@@ -32,6 +33,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 \n⚙ !юзердроп - удаляет всех пользователей
                 \n⚙ !дамп - сохраняет txt в корне проекта под названием "questions_and_answers.txt" согласно формату
                 \n⚙ !аптайм - показывает время работы с момента запуска бота
+                \n⚙ !обучение - достает неизвестные вопросы, обнаруженные ботом и предлагает их скорректировать и дать ответы на них.
                 \n💡 В корне проекта должна быть директория (папка) book в которой все txt для загрузки вопросов и ответов к ним в базу данных посредством команды !база.`
             )
         }
@@ -97,6 +99,17 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 { unit: "секунд", value: Math.floor((diff / 1000) % 60) },
             ];
             await context.send(`Время работы: ${timeUnits.filter(({ value }) => value > 0).map(({ unit, value }) => `${value} ${unit}`).join(" ")}`);
+        }
+    })
+    hearManager.hear(/!обучение/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            await context.send(`Внимание, вы в режиме обучения бота!`);
+            while (true) {
+                const trig = await Education_Engine(context)
+                if (!trig) { break }
+            }
+            
+            await context.send(`Обучили`);
         }
     })
 }
