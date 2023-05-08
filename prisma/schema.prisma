@@ -34,3 +34,9 @@ model Answer {
   id_question Int
   question    Question @relation(fields: [id_question], references: [id])
 }
+
+model Unknown {
+  id      Int      @id @default(autoincrement())
+  text    String   @unique
+  checked Boolean  @default(false)
+}

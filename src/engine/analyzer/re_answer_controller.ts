@@ -1,7 +1,7 @@
-import { MessageContext } from "vk-io";
+import { Context, MessageContext } from "vk-io";
 import { vks_info } from "../..";
 
-export async function Re_Answer_controller(context: MessageContext): Promise<boolean> {
+export async function Re_Answer_controller(context: Context): Promise<boolean> {
     const ids = vks_info.map((info) => info.idvk);
     try {
         await context.loadMessagePayload();

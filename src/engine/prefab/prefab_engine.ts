@@ -1,4 +1,4 @@
-import { MessageContext } from "vk-io";
+import { Context, MessageContext } from "vk-io";
 import prisma from "../../module/prisma";
 
 async function User_Registration(context: any) {
@@ -13,7 +13,7 @@ async function User_Registration(context: any) {
     }
 }
 
-export async function Prefab_Engine(context: MessageContext) {
+export async function Prefab_Engine(context: Context) {
     //регистрация пользователя
     await User_Registration(context)
     //модуль игнорирования пользователей

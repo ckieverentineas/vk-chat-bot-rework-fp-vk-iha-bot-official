@@ -1,4 +1,4 @@
-import { MessageContext } from "vk-io";
+import { Context, MessageContext } from "vk-io";
 import { vks_info } from "../..";
 
 function extractMentions(text: string): Array<{ id: number, name: string, type: "user" | "club" }> {
@@ -14,7 +14,7 @@ function extractMentions(text: string): Array<{ id: number, name: string, type: 
     return mentions;
   }
   
-  export async function Call_Me_Controller(context: MessageContext): Promise<boolean> {
+  export async function Call_Me_Controller(context: Context): Promise<boolean> {
     const mentions = extractMentions(context.text || '');
     if (mentions.length === 0) {
       //console.log("Упоминаний не найдено");

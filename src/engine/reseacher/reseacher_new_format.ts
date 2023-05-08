@@ -1,11 +1,12 @@
-import { tokenizer, tokenizer_sentence } from "../..";
+import { root, tokenizer, tokenizer_sentence } from "../..";
 import { JaroWinklerDistance, DamerauLevenshteinDistance } from "natural";
 import prisma from "../../module/prisma";
 import { findBestMatch } from "string-similarity";
 import { distance as levenshteinDistance } from 'fastest-levenshtein';
 import { compareTwoStrings } from 'string-similarity';
 import { Question } from "@prisma/client";
-import { MessageContext } from "vk-io";
+import { Context, MessageContext, VK } from "vk-io";
+import { Add_Unknown } from "../education/education_egine";
 
 // Функция для токенизации текста
 async function tokenizeText(text: string): Promise<string[]> {
@@ -54,7 +55,7 @@ async function findClosestMatch(query: string[], sentences: Question[]): Promise
     return matches;
 }
 
-async function Reseacher_New_Format(res: { text: string, answer: string, info: string, status: boolean }, context: MessageContext, data_old: number) {
+async function Reseacher_New_Format(res: { text: string, answer: string, info: string, status: boolean }, context: Context, data_old: number, vk: VK) {
     const sentence_array = await tokenizeText(context.text!);
     const matchGenerator = Generator_Sentence();
     let result: Match[] = [];
@@ -75,13 +76,13 @@ async function Reseacher_New_Format(res: { text: string, answer: string, info: s
         ...match,
         sentence_question: match.sentence_question.sort((a, b) => b.score - a.score),
     }));
-    res = await processInputData(res, output, data_old)
+    res = await processInputData(res, output, data_old, vk)
     //console.log(JSON.stringify(output, null, 2));
     return res
 }
 
 // Определяем функцию для обработки входных данных
-async function processInputData(res: { text: string, answer: string, info: string, status: boolean }, data: Match[], data_old: number) {
+async function processInputData(res: { text: string, answer: string, info: string, status: boolean }, data: Match[], data_old: number, vk: VK) {
     const answers = []
     for (const obj of data) {
         if (obj.sentence_question.length > 0) {
@@ -92,6 +93,22 @@ async function processInputData(res: { text: string, answer: string, info: strin
             if (answer.length > 0) {
                 const randomIndex: number = Math.floor(Math.random() * answer.length)
                 answers.push({ id: answer[randomIndex].id, input: obj.query_question, qestion: obj.sentence_question[0].question.text, answer: answer[randomIndex].answer, crdate: new Date(answer[randomIndex].crdate) });
+            }
+        } else {
+            if (obj.query_question.length > 0) {
+                const unknown_add = await Add_Unknown(obj.query_question)
+                if (unknown_add) {
+                    try {
+                        await vk.api.messages.send({
+                            peer_id: Number(root),
+                            random_id: 0,
+                            message: `Обнаружен новый вопрос для обучения:\n\n${unknown_add.text}`
+                        })
+                        console.log(`Обнаружен новый вопрос для обучения:\n\n${unknown_add.text}`)
+                    } catch (e) {
+                        console.log(`Ошибка уведомления о сохранении вопроса ${e}`)
+                    }
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-import { MessageContext, VK } from 'vk-io';
+import { Context, MessageContext, VK } from 'vk-io';
 import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
@@ -77,7 +77,7 @@ for (const vk of vks) {
 	registerUserRoutes(hearManager)
 	//registerCommandRoutes(hearManager)
 	//миддлевар для предварительной обработки сообщений
-	vk.updates.on('message_new', async (context: MessageContext, next) => {
+	vk.updates.on('message_new', async (context: Context, next) => {
 		//модуль предобработки сообщений
 		if (await Prefab_Engine(context)) { return await next() }
 		if (context.isOutbox == false && context.senderId > 0 && context.text) {
@@ -87,7 +87,7 @@ for (const vk of vks) {
 			//запускаем режим печатания сообщения
 			await context.setActivity();
 			//ищем самый оптимальный вариант ответа на сообщение пользователя
-			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)
+			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context, vk)
 			if (!res.status) { console.log(res.info); return await next() }
 			//сохраняем ответ пользователя для анализатора
 			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer.replace(/\r?\n|\r/g, "") } })
@@ -101,7 +101,7 @@ for (const vk of vks) {
 		}
 		return await next();
 	})
-	vk.updates.on('wall_reply_new', async (context: any, next: any) => {
+	vk.updates.on('wall_reply_new', async (context: Context, next: any) => {
 		//событие отличается но подшаманим под классику жанра
 		context.senderId = context.fromId
 		//модуль предобработки сообщений
@@ -111,14 +111,14 @@ for (const vk of vks) {
 			//активация модулей класса анализаторов
 			if (await Analyzer_Core_Edition(context)) { return await next() }
 			//ищем самый оптимальный вариант ответа на сообщение пользователя
-			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context)
+			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context, vk)
 			if (!res.status) { console.log(res.info); return await next() }
 			//сохраняем ответ пользователя для анализатора
 			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer } })
 			try {
 				if (context.isWallComment) {
 					//отправляем оптимальный ответ пользователю на стене
-					await context.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${res.answer}`})
+					await vk.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${res.answer}`})
 					console.log(res.info)
 				}
 			} catch (e) {

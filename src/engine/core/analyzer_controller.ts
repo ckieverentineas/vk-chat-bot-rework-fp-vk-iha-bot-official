@@ -1,4 +1,4 @@
-import { MessageContext } from "vk-io"
+import { Context, MessageContext } from "vk-io"
 import { Anti_Spam_Engine } from "../analyzer/answer_antispam_defender"
 import { Call_Me_Controller } from "../analyzer/answer_call_me_controller"
 import { User_Say_How_I } from "../analyzer/answer_repeater_say_check"
@@ -6,7 +6,7 @@ import { Word_Count_Controller } from "../analyzer/answer_word_count_controller"
 import { Re_Answer_controller } from "../analyzer/re_answer_controller"
 import { Answer_Alive_Bot_Detector } from "../analyzer/answer_defender_multibot"
 
-export async function Analyzer_Core_Edition(context: MessageContext) {
+export async function Analyzer_Core_Edition(context: Context) {
 	//модуль защиты от спамеров, предупреждает тех, кто быстро пишет, пока автоматом не кинет в игнор-лист
 	if (await Anti_Spam_Engine(context)) { return true }
 	//модуль игнорирующий тех, кто присылает то, что прислал бот в прошлый раз или же дублирующиеся сообщения
