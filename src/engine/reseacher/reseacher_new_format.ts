@@ -76,7 +76,6 @@ async function Reseacher_New_Format(res: { text: string, answer: string, info: s
         ...match,
         sentence_question: match.sentence_question.sort((a, b) => b.score - a.score),
     }));
-    console.log("🚀 ~ file: reseacher_new_format.ts:79 ~ output.map ~ output:", JSON.stringify(output))
     res = await processInputData(res, output, data_old, vk)
     //console.log(JSON.stringify(output, null, 2));
     return res
