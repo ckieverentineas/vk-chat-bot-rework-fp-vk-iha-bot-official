@@ -42,11 +42,11 @@ async function findClosestMatch(query: string[], sentences: Question[]): Promise
     await Promise.all(query.map(async (query_question) => {
         const sentence_question: { question: Question; score: number }[] = (await Promise.all(sentences.map(async (sentence) => {
             const jaroWinklerScore = JaroWinklerDistance(query_question, sentence.text, {});
-            const levenshteinScore = 1 / (levenshteinDistance(query_question, sentence.text) + 1);
+            //const levenshteinScore = 1 / (levenshteinDistance(query_question, sentence.text) + 1);
             const cosineScore = compareTwoStrings(query_question, sentence.text);
-            const score = (jaroWinklerScore + levenshteinScore + cosineScore) / 3;
-            if (score >= 0.3) {
-            return { question: sentence, score };
+            const score = (cosineScore*2 + jaroWinklerScore)/3;
+            if (score >= 0.4) {
+            return { question: sentence, score: score };
             }
             return undefined;
         }))).filter((q): q is { question: Question; score: number } => q !== undefined);
@@ -76,6 +76,7 @@ async function Reseacher_New_Format(res: { text: string, answer: string, info: s
         ...match,
         sentence_question: match.sentence_question.sort((a, b) => b.score - a.score),
     }));
+    console.log("🚀 ~ file: reseacher_new_format.ts:79 ~ output.map ~ output:", JSON.stringify(output))
     res = await processInputData(res, output, data_old, vk)
     //console.log(JSON.stringify(output, null, 2));
     return res
