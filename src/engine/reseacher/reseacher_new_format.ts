@@ -46,12 +46,12 @@ async function findClosestMatch(query: string[], sentences: Question[]): Promise
             const cosineScore = compareTwoStrings(query_question, sentence.text);
             const score = (cosineScore*2 + jaroWinklerScore)/3;
             if (score >= 0.4) {
-            return { question: sentence, score: score };
+                return { question: sentence, score: score };
             }
             return undefined;
         }))).filter((q): q is { question: Question; score: number } => q !== undefined);
             matches.push({ query_question, sentence_question });
-        }));
+    }));
     return matches;
 }
 
