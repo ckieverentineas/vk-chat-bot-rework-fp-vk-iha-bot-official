@@ -12,6 +12,7 @@ import { updateStatuses } from './module/status_changer';
 import { randomInt } from 'crypto';
 import prisma from './module/prisma';
 import { Prefab_Engine } from './engine/prefab/prefab_engine';
+import { Replacer_System_Params } from './engine/reseacher/specializator';
 dotenv.config();
 
 
@@ -91,6 +92,8 @@ for (const vk of vks) {
 			if (!res.status) { console.log(res.info); return await next() }
 			//сохраняем ответ пользователя для анализатора
 			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer.replace(/\r?\n|\r/g, "") } })
+			//наконец добавили модуль для обработки всех этих %username% и прочей фигни=)
+			res.answer = await Replacer_System_Params(res.answer, context)
 			try { 
 				//отправляем оптимальный ответ пользователю
 				if (context.isChat) { await context.reply(`${res.answer}`) } else { await context.send(`${res.answer}`) }
@@ -115,6 +118,8 @@ for (const vk of vks) {
 			if (!res.status) { console.log(res.info); return await next() }
 			//сохраняем ответ пользователя для анализатора
 			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer } })
+			//наконец добавили модуль для обработки всех этих %username% и прочей фигни=)
+			res.answer = await Replacer_System_Params(res.answer, context)
 			try {
 				if (context.isWallComment) {
 					//отправляем оптимальный ответ пользователю на стене
