@@ -32,7 +32,7 @@ model Answer {
   answer      String
   crdate      DateTime @default(now())
   id_question Int
-  question    Question @relation(fields: [id_question], references: [id])
+  question    Question @relation(fields: [id_question], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
 
 model Unknown {

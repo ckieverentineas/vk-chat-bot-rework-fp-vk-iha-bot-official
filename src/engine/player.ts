@@ -7,6 +7,7 @@ import prisma from "../module/prisma";
 import { Prefab_Engine } from './prefab/prefab_engine';
 import { Save_Answers_and_Question_In_DB, exportQuestionsAndAnswers } from "./parser";
 import { Education_Engine } from "./education/education_egine";
+import { Editor_Engine } from "./editor/editor_engine";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!база/, async (context) => {
@@ -33,6 +34,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 \n⚙ !дамп - сохраняет txt в корне проекта под названием "questions_and_answers.txt" согласно формату
                 \n⚙ !аптайм - показывает время работы с момента запуска бота
                 \n⚙ !обучение - достает неизвестные вопросы, обнаруженные ботом и предлагает их скорректировать и дать ответы на них.
+                \n⚙ !редактирование - позволяет по ID вопроса/ответа удалить или скорректировать вопрос/ответ.
                 \n💡 В корне проекта должна быть директория (папка) book в которой все txt для загрузки вопросов и ответов к ним в базу данных посредством команды !база.`
             )
         }
@@ -109,6 +111,17 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
             
             await context.send(`Обучили`);
+        }
+    })
+    hearManager.hear(/!редактирование/, async (context) => {
+        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+            await context.send(`Внимание, вы в режиме редактирования базы данных бота!`);
+            while (true) {
+                const trig = await Editor_Engine(context)
+                if (!trig) { break }
+            }
+            
+            await context.send(`Скорректировали`);
         }
     })
 }
