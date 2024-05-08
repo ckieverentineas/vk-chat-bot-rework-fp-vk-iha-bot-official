@@ -57,20 +57,31 @@ const vkEntities: VkEntity[] = JSON.parse(String(process.env.VK_ENTITIES)) || '[
 // Создаем объект VK для каждой Vk-сущности
 export const vks: VK[] = [];
 export const vks_info: VKs_Info[] = [];
+async function Group_Id_Get(token: string) {
+	const vk = new VK({ token: token, apiLimit: 1 });
+	const [group] = await vk.api.groups.getById(vk);
+	const groupId = group.id;
+	return groupId
+}
+async function User_Id_Get(token: string) {
+	const vk = new VK({ token: token, apiLimit: 1 });
+	const [group] = await vk.api.users.get(vk);
+	const groupId = group.id;
+	return groupId
+}
 for (const entity of vkEntities) {
+	const idvk = entity.type === 'group' ? Number(Group_Id_Get(entity.token)) : Number(User_Id_Get(entity.token))
 	//авторизация
 	const vk = new VK({
 		token: entity.token ,
 		apiLimit: 1,
-		pollingGroupId: entity.type === 'group' ? entity.idvk : undefined,
+		pollingGroupId: entity.type === 'group' ? idvk : undefined,
 	});
 	vks.push(vk);
-	vks_info.push({ idvk: entity.idvk, type: entity.type })
+	vks_info.push({ idvk: idvk, type: entity.type })
 }
 for (const vk of vks) {
 	//настройка
-	vk.updates.use(questionManager.middleware);
-	vk.updates.on('message_new', hearManager.middleware);
 	vk.updates.use(questionManager.middleware);
 	vk.updates.on('message_new', hearManager.middleware);
 	//регистрация роутов из других классов
