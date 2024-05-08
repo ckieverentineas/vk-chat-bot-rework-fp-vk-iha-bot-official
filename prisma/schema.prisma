@@ -41,3 +41,8 @@ model Unknown {
   text    String   @unique
   checked Boolean  @default(false)
 }
+
+model BlackList {
+  id      Int      @id @default(autoincrement())
+  text    String   @unique
+}

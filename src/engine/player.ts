@@ -8,6 +8,7 @@ import { Prefab_Engine } from './prefab/prefab_engine';
 import { Save_Answers_and_Question_In_DB, exportQuestionsAndAnswers } from "./parser";
 import { Education_Engine } from "./education/education_egine";
 import { Editor_Engine } from "./editor/editor_engine";
+import { Editor_Engine_BlackList } from "./prefab/blacklist_editor";
 
 export function registerUserRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!база/, async (context) => {
@@ -138,6 +139,16 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                 if (!trig) { break }
             }
             
+            await context.send(`Скорректировали`);
+        }
+    })
+    hearManager.hear(/!блэклист/, async (context) => {
+        if (context.isOutbox == false && (context.senderId == root || await User_Access(context) == true) && context?.text != undefined) {
+            await context.send(`Внимание, вы в режиме обновления блеклиста базы данных бота!`);
+            while (true) {
+                const trig = await Editor_Engine_BlackList(context)
+                if (!trig) { break }
+            }
             await context.send(`Скорректировали`);
         }
     })
