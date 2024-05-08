@@ -15,6 +15,7 @@ model User {
   say       String   @default("")
   memorytrg Boolean  @default(false)
   ignore    Boolean  @default(false)
+  root      Boolean  @default(false)
   warning   Int      @default(0)
   count     Int      @default(0)
   crdate    DateTime @default(now())

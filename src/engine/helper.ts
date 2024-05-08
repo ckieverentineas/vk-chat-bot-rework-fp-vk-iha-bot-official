@@ -11,7 +11,12 @@ export async function User_Info(context: any) {
     return userData
 }
 
-
+export async function User_Access(context: any) {
+    const user = await prisma.user.findFirst({ where: { idvk: context.senderId } })
+    let access = false
+    if (user && user.root == true) { access = true }
+    return access
+}
 
 
 
