@@ -84,7 +84,7 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
                     const login = await prisma.user.delete({ where: { id: user[i].id } })
                     console.log(`@id${login.idvk}(Пользователь) был удален`)
                 }
-                await context.send(`⚙ Внимание, было удалено ${user.length}'}`)
+                await context.send(`⚙ Внимание, было удалено пользователей ${user.length}`)
             } else {
                 await context.send(`⚙ Обидно, но некого удалить... Увы`)
                 console.log(`Пользователей не обнаружено`)
