@@ -1,7 +1,7 @@
 import { Unknown } from "@prisma/client";
 import prisma from "../../module/prisma";
 import { compareTwoStrings } from 'string-similarity';
-import { Context } from "vk-io";
+import { Context, Keyboard } from "vk-io";
 
 export async function Add_Unknown(text: string): Promise<Unknown | false> {
     const batchSize = 100000;
@@ -44,7 +44,16 @@ export async function Education_Engine(context: Context): Promise<boolean> {
     if (!unknown) { await context.send('Нет непомеченных вопросов.'); return false; }
     const res: Education_Structure = { id: unknown.id, question: unknown.text, answer: [], working: true }
     while (res.working) {
-        const input: any = await context.question(`Вопрос: ${res.question}\n\n Команды:\n!скорректировать - поправить вопрос;\n!добавить - добавить ответы;\n!пометить - считает неизвестный вопрос обработанным;\n!отмена - отменить обучение.` );
+        const input: any = await context.question(`Вопрос: ${res.question}\n\n Команды:\n!скорректировать - поправить вопрос;\n!добавить - добавить ответы;\n!пометить - считает неизвестный вопрос обработанным;\n!отмена - отменить обучение.`,
+            {	
+                keyboard: Keyboard.builder()
+                .textButton({ label: '!пометить', payload: { command: 'student' }, color: 'secondary' }).row()
+                .textButton({ label: '!скорректировать', payload: { command: 'professor' }, color: 'secondary' }).row()
+                .textButton({ label: '!добавить', payload: { command: 'citizen' }, color: 'secondary' }).row()
+                .textButton({ label: '!отмена', payload: { command: 'citizen' }, color: 'secondary' }).row()
+                .oneTime().inline()
+            }
+        );
         const functions: any = {
             '!пометить': Education_Skipper,
             '!скорректировать': Education_Corrector,
@@ -72,7 +81,14 @@ async function Education_Corrector(context: Context, res: Education_Structure): 
     let ender = true
     let question_new = res.question
     while (ender) {
-        const corrected = await context.question(`Есть вопрос: ${res.question}\n Исправленный вопрос: ${question_new}\n\nНапишите !сохранить если вас все устраивает.`)
+        const corrected = await context.question(`Есть вопрос: ${res.question}\n Исправленный вопрос: ${question_new}\n\nНапишите !сохранить если вас все устраивает.`,
+            {	
+                keyboard: Keyboard.builder()
+                .textButton({ label: '!сохранить', payload: { command: 'student' }, color: 'secondary' })
+                .textButton({ label: '!отмена', payload: { command: 'citizen' }, color: 'secondary' })
+                .oneTime().inline()
+            }
+        )
         if (corrected.text == '!сохранить') {
             const correct: Unknown = await prisma.unknown.update({ where: { id: res.id }, data: { text: question_new } });
             if (correct) {
@@ -81,7 +97,11 @@ async function Education_Corrector(context: Context, res: Education_Structure): 
                 ender = false
             }
         } else {
-            question_new = corrected.text
+            if (corrected.text == '!отмена') {
+                ender = false
+            } else {
+                question_new = corrected.text
+            }
         }
     }
 }
@@ -89,7 +109,14 @@ async function Education_Corrector(context: Context, res: Education_Structure): 
 async function Education_Answer(context: Context, res: Education_Structure): Promise<void> {
     let ender = true
     while (ender) {
-        const corrected = await context.question(`Есть вопрос: ${res.question}\n\nЕсть ответы: \n${res.answer.map((answer, index) => `${index + 1} ${answer}`).join('\n')}\n\nНапишите !сохранить если вас все устраивает. иначе новый вариант ответа`)
+        const corrected = await context.question(`Есть вопрос: ${res.question}\n\nЕсть ответы: \n${res.answer.map((answer, index) => `${index + 1} ${answer}`).join('\n')}\n\nНапишите !сохранить если вас все устраивает. иначе новый вариант ответа`,
+            {	
+                keyboard: Keyboard.builder()
+                .textButton({ label: '!сохранить', payload: { command: 'student' }, color: 'secondary' })
+                .textButton({ label: '!отмена', payload: { command: 'citizen' }, color: 'secondary' })
+                .oneTime().inline()
+            }
+        )
         if (corrected.text == '!сохранить') {
             // Проверяем, есть ли вопрос уже в базе данных
             let question = await prisma.question.findFirst({ where: { text: res.question } });
@@ -110,7 +137,11 @@ async function Education_Answer(context: Context, res: Education_Structure): Pro
             res.working = false
             ender = false
         } else {
-            res.answer.push(corrected.text)
+            if (corrected.text == '!отмена') {
+                ender = false
+            } else {
+                res.answer.push(corrected.text)
+            }
         }
     }
 }
