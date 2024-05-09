@@ -1,5 +1,5 @@
 import { root, tokenizer, tokenizer_sentence } from "../..";
-import { JaroWinklerDistance, DamerauLevenshteinDistance } from "natural";
+import { JaroWinklerDistance, DamerauLevenshteinDistance, LevenshteinDistance, DiceCoefficient } from "natural";
 import prisma from "../../module/prisma";
 import { findBestMatch } from "string-similarity";
 import { distance as levenshteinDistance } from 'fastest-levenshtein';
@@ -42,11 +42,16 @@ async function findClosestMatch(query: string[], sentences: BlackList[]): Promis
     const matches: Match[] = [];
     await Promise.all(query.map(async (query_question) => {
         const sentence_question: { question: BlackList; score: number }[] = (await Promise.all(sentences.map(async (sentence) => {
-            const jaroWinklerScore = JaroWinklerDistance(query_question, sentence.text, {});
-            //const levenshteinScore = 1 / (levenshteinDistance(query_question, sentence.text) + 1);
-            const cosineScore = compareTwoStrings(query_question, sentence.text);
-            const score = (cosineScore*2 + jaroWinklerScore)/3;
-            if (score >= 0.4) {
+            const jaroWinklerScore = JaroWinklerDistance(sentence.text, query_question, {});
+            //const levenshteinScore = 1 / (levenshteinDistance(sentence.text, query_question) + 1);
+            //const levenshteinScore2 = 1 / (LevenshteinDistance(sentence.text, query_question) + 1)
+            //const damer = 1 / (DamerauLevenshteinDistance(sentence.text, query_question) + 1);
+            const cosineScore = compareTwoStrings(sentence.text, query_question);
+            const diceCoefficient = DiceCoefficient(sentence.text, query_question)
+            const score = (cosineScore*2 + jaroWinklerScore/2 + diceCoefficient*2)/5;
+            //console.log({ question: sentence, score: score, message: query_question, cosineScore, jaroWinklerScore, diceCoefficient })
+            if (cosineScore >= 0.55 || diceCoefficient >= 0.55 || jaroWinklerScore >= 0.91 || score >= 0.55 || query_question.includes(sentence.text)) {
+                //console.log(` Проверяем сообщение: [${query_question}] \n Найденно стоп-слово: [${sentence.text}] \n Очки: cosineScore [${cosineScore}] diceCoefficient [${diceCoefficient}] jaroWinklerScore [${jaroWinklerScore}] score [${score}] \nОстанавливаем ответ: [подтверждено] \n\n`)
                 return { question: sentence, score: score };
             }
             return undefined;
@@ -55,7 +60,7 @@ async function findClosestMatch(query: string[], sentences: BlackList[]): Promis
     }));
     return matches;
 }
-
+  
 async function Black_List_Engine(res: { text: string, answer: string, info: string, status: boolean }, context: Context) {
     const data_old = Number(new Date())
     const sentence_array = await tokenizeText(context.text!);
@@ -78,33 +83,17 @@ async function Black_List_Engine(res: { text: string, answer: string, info: stri
         ...match,
         sentence_question: match.sentence_question.sort((a, b) => b.score - a.score),
     }));
-    res = await processInputData(res, output, data_old, context)
+    if (output[0].sentence_question.length > 0) {
+        console.log(output)
+        res.status = true
+        console.log(output[0])
+        await context.send(`Обнаружено стоп-слово ${JSON.stringify(output[0]?.sentence_question[0]?.question)}, отвечать не буду`)
+        console.log(` Проверяем сообщение: [${res.text}] \n Найденно стоп-слово: [${JSON.stringify(output[0]?.sentence_question[0]?.question?.text)}] \n Очки: score [${output[0]?.sentence_question[0]?.score}] \nОстанавливаем ответ: [подтверждено] \n\n`)
+    }
     //console.log(JSON.stringify(output, null, 2));
     return res
 }
 
-// Определяем функцию для обработки входных данных
-async function processInputData(res: { text: string, answer: string, info: string, status: boolean }, data: Match[], data_old: number, context: any) {
-    const answers = []
-    for (const obj of data) {
-        if (obj.sentence_question.length > 0) {
-            const answer = await prisma.answer.findMany({
-            where: { id_question: obj.sentence_question[0].question.id },
-            take: 100,
-            })
-            if (answer.length > 0) {
-                const randomIndex: number = Math.floor(Math.random() * answer.length)
-                answers.push({ id: answer[randomIndex].id, input: obj.query_question, qestion: obj.sentence_question[0].question.text, answer: answer[randomIndex].answer, crdate: new Date(answer[randomIndex].crdate) });
-            }
-        }
-    }
-    if (answers.length > 0) {
-        res.answer =  answers.length == 1 ? answers.map(answer => `${answer.answer}\n\n`).join('') : answers.map(answer => `${answer.input}: \n${answer.answer}\n\n`).join('')
-        res.info = ` Получено сообщение: [${res.text}] \n Исправление ошибок: [${answers.map(answer => `${answer.id} --> ${answer.qestion}`).join(' ')}] \n Найденные стоп-слова: [${answers.map(answer => `${answer.id} <-- ${answer.answer}`).join(' ')}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${"MultiBoost~"}] \n\n`
-        res.status = true
-    }
-    return res
-}
 
 
 export default Black_List_Engine;

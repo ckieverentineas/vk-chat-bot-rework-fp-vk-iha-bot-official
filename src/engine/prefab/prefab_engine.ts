@@ -26,7 +26,7 @@ export async function Prefab_Engine(context: Context) {
     if (context.hasAttachments("sticker")) { context.text = 'стикер стикер стикер стикер' }
     //модуль блеклиста для стоп слов
     const data = await Black_List_Engine({ text: context.text, answer: '', info: '', status: false }, context)
-    //if (data.status) { return true }
+    if (data.status) { return true }
     return false;
 }
 
