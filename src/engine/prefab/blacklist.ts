@@ -83,12 +83,10 @@ async function Black_List_Engine(res: { text: string, answer: string, info: stri
         ...match,
         sentence_question: match.sentence_question.sort((a, b) => b.score - a.score),
     }));
-    if (output[0].sentence_question.length > 0) {
-        console.log(output)
+    if (output[0]?.sentence_question?.length > 0) {
         res.status = true
-        console.log(output[0])
         await context.send(`Обнаружено стоп-слово ${JSON.stringify(output[0]?.sentence_question[0]?.question)}, отвечать не буду`)
-        console.log(` Проверяем сообщение: [${res.text}] \n Найденно стоп-слово: [${JSON.stringify(output[0]?.sentence_question[0]?.question?.text)}] \n Очки: score [${output[0]?.sentence_question[0]?.score}] \nОстанавливаем ответ: [подтверждено] \n\n`)
+        console.log(` Проверяем сообщение: [${res.text}] \n Найденно стоп-слово: [${output[0]?.sentence_question[0]?.question?.text}] \n Очки: score [${output[0]?.sentence_question[0]?.score}] \nОстанавливаем ответ: [подтверждено] \n\n`)
     }
     //console.log(JSON.stringify(output, null, 2));
     return res

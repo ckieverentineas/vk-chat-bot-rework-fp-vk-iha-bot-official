@@ -1,7 +1,7 @@
 import { Answer, BlackList, Unknown } from "@prisma/client";
 import prisma from "../../module/prisma";
 import { compareTwoStrings } from 'string-similarity';
-import { Context } from "vk-io";
+import { Context, Keyboard } from "vk-io";
 import Black_List_Engine from "./blacklist";
 
 async function Save_Black_Word(text: string): Promise<BlackList | false> {
@@ -19,7 +19,15 @@ export async function Editor_Engine_BlackList(context: Context): Promise<boolean
 
     const res: { working: boolean } = { working: true }
     while (res.working) {
-        const input: any = await context.question(`Добро пожаловать в режим редактирования блеклиста баз данных\n\n Команды:\n!выбрать стоп-слово - для выбора стоп-слова по его ID для удаления или редактирования;\n!добавить стоп-слово - для добавления нового стоп-слова;\n!отмена - отменить стоп-слова.` );
+        const input: any = await context.question(`Добро пожаловать в режим редактирования блеклиста баз данных\n\n Команды:\n!выбрать стоп-слово - для выбора стоп-слова по его ID для удаления или редактирования;\n!добавить стоп-слово - для добавления нового стоп-слова;\n!отмена - отменить стоп-слова.`,
+            {	
+                keyboard: Keyboard.builder()
+                .textButton({ label: '!выбрать стоп-слово', payload: { command: 'student' }, color: 'secondary' }).row()
+                .textButton({ label: '!добавить стоп-слово', payload: { command: 'professor' }, color: 'secondary' }).row()
+                .textButton({ label: '!отмена', payload: { command: 'citizen' }, color: 'secondary' }).row()
+                .oneTime().inline()
+            }
+        );
         const functions: any = {
             '!выбрать стоп-слово': Select_BlackList,
             '!добавить стоп-слово': Create_BlackList,
@@ -42,7 +50,14 @@ async function Create_BlackList(context: Context, res: { working: boolean }): Pr
     while (ender) {
         const check = await Save_Black_Word(word)
         const text_smart = check ? `Внимание уже есть похожее стоп-слово [${check.text}] под ID${check.id}` : ``
-        const corrected = await context.question(`Добавление стоп-слова, вы ввели:\n[${word}]\n\nНапишите !сохранить если вас все устраивает. иначе новый вариант стоп-слово`)
+        const corrected = await context.question(`Добавление стоп-слова, вы ввели:\n[${word}]\n\nНапишите !сохранить если вас все устраивает. иначе новый вариант стоп-слово`,
+            {	
+                keyboard: Keyboard.builder()
+                .textButton({ label: '!сохранить', payload: { command: 'student' }, color: 'secondary' })
+                .textButton({ label: '!отмена', payload: { command: 'citizen' }, color: 'secondary' })
+                .oneTime().inline()
+            }
+        )
         if (corrected.text == '!сохранить') {
             // Проверяем, есть ли ответ уже в базе данных
             const save = await prisma.blackList.create({ data: { text: word } })
@@ -52,7 +67,11 @@ async function Create_BlackList(context: Context, res: { working: boolean }): Pr
             res.working = false
             ender = false
         } else {
-            word = corrected.text
+            if (corrected.text == '!отмена') {
+                ender = false
+            } else {
+                word = corrected.text
+            }
         }
     }
 }
@@ -61,11 +80,17 @@ async function Select_BlackList(context: Context, res: { working: boolean }): Pr
     let value_check = false
     const question: { id: number | null, text: String | null, text_edit: string | null} = { id: null, text: null, text_edit: null }
 	while (value_check == false) {
-		const uid: any = await context.question( `🧷 Введите ID стоп-слова:`)
+		const uid: any = await context.question( `🧷 Введите ID стоп-слова:`,
+            {	
+                keyboard: Keyboard.builder()
+                .textButton({ label: '!отмена', payload: { command: 'citizen' }, color: 'secondary' }).row()
+                .oneTime().inline()
+            }
+        )
         if (uid.isTimeout) { return await context.send('⏰ Время ожидания на ввод банковского счета получателя истекло!')}
-		if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
+		if (uid.text == '!отмена') { value_check = true; return }
+        if (/^(0|-?[1-9]\d{0,5})$/.test(uid.text)) {
             const ques = await prisma.blackList.findFirst({ where: { id: Number(uid.text) } })
-            if (uid.text == '!отмена') { value_check = true; return }
             if (ques) {
                 question.id = ques.id
                 question.text = ques.text
@@ -78,7 +103,15 @@ async function Select_BlackList(context: Context, res: { working: boolean }): Pr
     }
     let value_pass = false
     while (value_pass == false) {
-        const input: any = await context.question(`Вы открыли следующее стоп-слово:\nID: ${question.id}\nСодержание: ${question.text}\n\n Команды:\n!скорректировать - изменить стоп-слово;\n!удалить - удалить стоп-слово;\n!отмена - отменить стоп-слово.` );
+        const input: any = await context.question(`Вы открыли следующее стоп-слово:\nID: ${question.id}\nСодержание: ${question.text}\n\n Команды:\n!скорректировать - изменить стоп-слово;\n!удалить - удалить стоп-слово;\n!отмена - отменить стоп-слово.`,
+            {	
+                keyboard: Keyboard.builder()
+                .textButton({ label: '!скорректировать', payload: { command: 'student' }, color: 'secondary' }).row()
+                .textButton({ label: '!удалить', payload: { command: 'professor' }, color: 'secondary' }).row()
+                .textButton({ label: '!отмена', payload: { command: 'citizen' }, color: 'secondary' }).row()
+                .oneTime().inline()
+            }
+        );
         const functions: any = {
             '!скорректировать': Edit_Question,
             '!удалить': Delete_Question,
@@ -96,8 +129,15 @@ async function Select_BlackList(context: Context, res: { working: boolean }): Pr
         let ender = true
         while (ender) {
             const check = await Save_Black_Word(question.text_edit)
-        const text_smart = check ? `Внимание уже есть похожее стоп-слово [${check.text}] под ID${check.id}` : ``
-            const corrected = await context.question(`Корректировка стоп-слова:\n[${question.text}] --> [${question.text_edit}]\n\nНапишите !сохранить если вас все устраивает. иначе новый вариант стоп-слово\n\n ${text_smart}`)
+            const text_smart = check ? `Внимание уже есть похожее стоп-слово [${check.text}] под ID${check.id}` : ``
+            const corrected = await context.question(`Корректировка стоп-слова:\n[${question.text}] --> [${question.text_edit}]\n\nНапишите !сохранить если вас все устраивает. иначе новый вариант стоп-слово\n\n ${text_smart}`,
+                {	
+                    keyboard: Keyboard.builder()
+                    .textButton({ label: '!сохранить', payload: { command: 'student' }, color: 'secondary' })
+                    .textButton({ label: '!отмена', payload: { command: 'citizen' }, color: 'secondary' })
+                    .oneTime().inline()
+                }
+            )
             if (corrected.text == '!сохранить') {
                 // Проверяем, есть ли ответ уже в базе данных
                 let save_pass = await prisma.blackList.findFirst({ where: { id: question.id } });
@@ -110,7 +150,11 @@ async function Select_BlackList(context: Context, res: { working: boolean }): Pr
                 res.working = false
                 ender = false
             } else {
-                question.text_edit = corrected.text
+                if (corrected.text == '!отмена') {
+                    ender = false
+                } else {
+                    question.text_edit = corrected.text
+                }
             }
         }
         value_pass = true
@@ -118,7 +162,14 @@ async function Select_BlackList(context: Context, res: { working: boolean }): Pr
     async function Delete_Question(context: Context, question: { id: number, text: String, text_edit: string}) {
         let ender = true
         while (ender) {
-            const corrected = await context.question(`Вы уверены, что хотите удалить следующее стоп-слово:\nID: ${question.id}\nСодержание: ${question.text}\n\nНапишите !да если подтверждаете его удаление. иначе !нет для отмены удаления\n`)
+            const corrected = await context.question(`Вы уверены, что хотите удалить следующее стоп-слово:\nID: ${question.id}\nСодержание: ${question.text}\n\nНапишите !да если подтверждаете его удаление. иначе !нет для отмены удаления\n`,
+                {	
+                    keyboard: Keyboard.builder()
+                    .textButton({ label: '!да', payload: { command: 'student' }, color: 'secondary' })
+                    .textButton({ label: '!нет', payload: { command: 'citizen' }, color: 'secondary' })
+                    .oneTime().inline()
+                }
+            )
             if (corrected.text == '!да') {
                 // Проверяем, есть ли ответ уже в базе данных
                 let save_pass = await prisma.blackList.findFirst({ where: { id: question.id } });
