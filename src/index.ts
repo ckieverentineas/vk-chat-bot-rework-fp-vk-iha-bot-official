@@ -13,6 +13,7 @@ import { randomInt } from 'crypto';
 import prisma from './module/prisma';
 import { Prefab_Engine } from './engine/prefab/prefab_engine';
 import { Replacer_System_Params } from './engine/reseacher/specializator';
+import { Sleep } from './engine/helper';
 dotenv.config();
 
 
@@ -65,99 +66,119 @@ async function Group_Id_Get(token: string) {
 }
 async function User_Id_Get(token: string) {
 	const vk = new VK({ token: token, apiLimit: 1 });
-	const [group] = await vk.api.users.get(vk);
-	const groupId = group.id;
+	const [user] = await vk.api.users.get(vk);
+	const groupId = user.id;
 	return groupId
 }
-for (const entity of vkEntities) {
-	const idvk = entity.type === 'group' ? Number(Group_Id_Get(entity.token)) : Number(User_Id_Get(entity.token))
-	//авторизация
-	const vk = new VK({
-		token: entity.token ,
-		apiLimit: 1,
-		pollingGroupId: entity.type === 'group' ? idvk : undefined,
-	});
-	vks.push(vk);
-	vks_info.push({ idvk: idvk, type: entity.type })
+function Id_Getter(target: string, token: string) {
+	const functions: any = {
+		'group': Group_Id_Get,
+		'page': User_Id_Get,
+	};
+	const commandHandler = functions[target];
+	const res = commandHandler(token).then((data: any) => { return data })
+	return res
 }
-for (const vk of vks) {
-	//настройка
-	vk.updates.use(questionManager.middleware);
-	vk.updates.on('message_new', hearManager.middleware);
-	//регистрация роутов из других классов
-	InitGameRoutes(hearManager)
-	registerUserRoutes(hearManager)
-	//registerCommandRoutes(hearManager)
-	//миддлевар для предварительной обработки сообщений
-	vk.updates.on('message_new', async (context: Context, next) => {
-		//модуль предобработки сообщений
-		if (await Prefab_Engine(context)) { return await next() }
-		if (context.isOutbox == false && context.senderId > 0 && context.text) {
-			//обрабатываем входящее сообщение
-			//активация модулей класса анализаторов
-			if (await Analyzer_Core_Edition(context)) { return await next() }
-			//запускаем режим печатания сообщения
-			await context.setActivity();
-			//ищем самый оптимальный вариант ответа на сообщение пользователя
-			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context, vk)
-			if (!res.status) { console.log(res.info); return await next() }
-			//сохраняем ответ пользователя для анализатора
-			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer.replace(/\r?\n|\r/g, "") } })
-			//наконец добавили модуль для обработки всех этих %username% и прочей фигни=)
-			res.answer = await Replacer_System_Params(res.answer, context)
-			try { 
-				//отправляем оптимальный ответ пользователю
-				if (context.isChat) { await context.reply(`${res.answer}`) } else { await context.send(`${res.answer}`) }
-				console.log(res.info)
-			} catch (e) {
-				console.log(`Проблема отправки сообщения в чат: ${e}`) 
-			}
-		}
-		return await next();
-	})
-	vk.updates.on('wall_reply_new', async (context: Context, next: any) => {
-		//событие отличается но подшаманим под классику жанра
-		context.senderId = context.fromId
-		//модуль предобработки сообщений
-		if (await Prefab_Engine(context)) { return await next() }
-		if (context.fromId > 0 && context.text) {
-			//обрабатываем входящее сообщение на стене
-			//активация модулей класса анализаторов
-			if (await Analyzer_Core_Edition(context)) { return await next() }
-			//ищем самый оптимальный вариант ответа на сообщение пользователя
-			let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context, vk)
-			if (!res.status) { console.log(res.info); return await next() }
-			//сохраняем ответ пользователя для анализатора
-			await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer } })
-			//наконец добавили модуль для обработки всех этих %username% и прочей фигни=)
-			res.answer = await Replacer_System_Params(res.answer, context)
-			try {
-				if (context.isWallComment) {
-					//отправляем оптимальный ответ пользователю на стене
-					await vk.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${res.answer}`})
-					console.log(res.info)
+
+Promise.all(vkEntities.map(async entity => {
+	try {
+		//let idvk = entity.type === 'group' ? Number((await Group_Id_Get(entity.token))) : Number(await User_Id_Get(entity.token))
+		const idvk = await Id_Getter(entity.type, entity.token).then((data: any) => { return data })
+		//console.log(idvk);
+		// Авторизация
+		const vk = new VK({
+		  token: entity.token,
+		  apiLimit: 1,
+		  pollingGroupId: entity.type === 'group' ? idvk : undefined,
+		});
+		vks.push(vk);
+		vks_info.push({ idvk: idvk, type: entity.type });
+	} catch (error) {
+		console.error(error);
+	}
+	return [vks, vks_info]
+})).then(()=>{
+	vks.map(vk => {
+		//console.log(vks_info)
+		//настройка
+		vk.updates.use(questionManager.middleware);
+		vk.updates.on('message_new', hearManager.middleware);
+		//регистрация роутов из других классов
+		InitGameRoutes(hearManager)
+		registerUserRoutes(hearManager)
+		//registerCommandRoutes(hearManager)
+		//миддлевар для предварительной обработки сообщений
+		vk.updates.on('message_new', async (context: Context, next) => {
+			//модуль предобработки сообщений
+			if (await Prefab_Engine(context)) { return await next(); }
+			if (context.isOutbox == false && context.senderId > 0 && context.text) {
+				//обрабатываем входящее сообщение
+				//активация модулей класса анализаторов
+				if (await Analyzer_Core_Edition(context)) { return await next(); }
+				//запускаем режим печатания сообщения
+				await context.setActivity();
+				//ищем самый оптимальный вариант ответа на сообщение пользователя
+				let res: { text: string; answer: string; info: string; status: boolean; } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context, vk);
+				if (!res.status) { console.log(res.info); return await next(); }
+				//сохраняем ответ пользователя для анализатора
+				await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer.replace(/\r?\n|\r/g, "") } });
+				//наконец добавили модуль для обработки всех этих %username% и прочей фигни=)
+				res.answer = await Replacer_System_Params(res.answer, context);
+				try {
+					//отправляем оптимальный ответ пользователю
+					if (context.isChat) { await context.reply(`${res.answer}`); } else { await context.send(`${res.answer}`); }
+					console.log(res.info);
+				} catch (e) {
+					console.log(`Проблема отправки сообщения в чат: ${e}`);
 				}
-			} catch (e) {
-				console.log(`Проблема отправки сообщения в чат: ${e}`)
 			}
-		}
-		return await next();
+			return await next();
+		})
+		vk.updates.on('wall_reply_new', async (context: Context, next: any) => {
+			//событие отличается но подшаманим под классику жанра
+			context.senderId = context.fromId
+			//модуль предобработки сообщений
+			if (await Prefab_Engine(context)) { return await next() }
+			if (context.fromId > 0 && context.text) {
+				//обрабатываем входящее сообщение на стене
+				//активация модулей класса анализаторов
+				if (await Analyzer_Core_Edition(context)) { return await next() }
+				//ищем самый оптимальный вариант ответа на сообщение пользователя
+				let res: { text: string, answer: string, info: string, status: boolean } = await Answer_Core_Edition({ text: context.text, answer: '', info: '', status: false }, context, vk)
+				if (!res.status) { console.log(res.info); return await next() }
+				//сохраняем ответ пользователя для анализатора
+				await prisma.user.update({ where: { idvk: context.senderId }, data: { say_me: res.answer } })
+				//наконец добавили модуль для обработки всех этих %username% и прочей фигни=)
+				res.answer = await Replacer_System_Params(res.answer, context)
+				try {
+					if (context.isWallComment) {
+						//отправляем оптимальный ответ пользователю на стене
+						await vk.api.wall.createComment({owner_id: context.ownerId, post_id: context.objectId, reply_to_comment: context.id, guid: context.text, message: `${res.answer}`})
+						console.log(res.info)
+					}
+				} catch (e) {
+					console.log(`Проблема отправки сообщения в чат: ${e}`)
+				}
+			}
+			return await next();
+		})
+		/*vk.updates.on('friend_request', async (context: any, next) => {
+			console.log("🚀 ~ file: index.ts:132 ~ vk.updates.on ~ context:", context)
+			const { user_id } = context.payload;
+			try {
+			  await context.api.friends.add({ user_id });
+			  console.log(`Пользователь с id ${user_id} успешно добавлен в друзья`);
+			} catch (error) {
+			  console.error(`Не удалось добавить пользователя с id ${user_id} в друзья`, error);
+			}
+		  
+			return next();
+		  });*/
+		vk.updates.start().then(() => {
+			console.log('Бот успешно запущен и готов к эксплуатации!')
+		}).catch(console.log);
 	})
-	/*vk.updates.on('friend_request', async (context: any, next) => {
-		console.log("🚀 ~ file: index.ts:132 ~ vk.updates.on ~ context:", context)
-		const { user_id } = context.payload;
-		try {
-		  await context.api.friends.add({ user_id });
-		  console.log(`Пользователь с id ${user_id} успешно добавлен в друзья`);
-		} catch (error) {
-		  console.error(`Не удалось добавить пользователя с id ${user_id} в друзья`, error);
-		}
-	  
-		return next();
-	  });*/
-	vk.updates.start().then(() => {
-		console.log('Бот успешно запущен и готов к эксплуатации!')
-	}).catch(console.log);
-}
+})
+
 //запуск автостатуса каждые 2-10 минут
 setInterval(updateStatuses, randomInt(2,10) * 60 * 1000);

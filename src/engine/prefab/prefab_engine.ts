@@ -16,6 +16,8 @@ async function User_Registration(context: any) {
 
 export async function Prefab_Engine(context: Context) {
     //регистрация пользователя
+    if (context.isOutbox == true) { return true; }
+    console.log(context)
     await User_Registration(context)
     //модуль игнорирования пользователей
     if (await User_ignore_Check(context)) { return true; }

@@ -9,7 +9,7 @@ export async function updateStatuses() {
             await vk.api.status.set({
                 text: `${await Up_Time()}`
             });
-            console.log(`Статус страницы с ID ${info.idvk} изменен`);
+            console.log(`Статус ${info.type} с ID ${info.idvk} изменен`);
             } else if (info.type === 'group') {
                 /*
                 await vk.api.status.set({
