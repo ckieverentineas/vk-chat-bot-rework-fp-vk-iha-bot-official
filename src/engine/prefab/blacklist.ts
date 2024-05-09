@@ -10,7 +10,8 @@ import { Add_Unknown } from "../education/education_egine";
 
 // Функция для токенизации текста
 async function tokenizeText(text: string): Promise<string[]> {
-    return await tokenizer_sentence.tokenize(text.toLowerCase()) || [];
+    const ans = typeof text === "string" ? await tokenizer_sentence.tokenize(text.toLowerCase()) : [];
+    return ans
 }
 // Асинхронный генератор для извлечения вопросов из базы данных порциями
 async function* Generator_Sentence(): AsyncGenerator<BlackList[]> {
