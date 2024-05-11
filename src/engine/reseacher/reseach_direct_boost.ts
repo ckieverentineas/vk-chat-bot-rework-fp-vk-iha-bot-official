@@ -6,7 +6,7 @@ export async function Direct_Search(res: { text: string, answer: string, info: s
       include: { answers: true },
     });
     if (question) {
-      const answer = question.answers[0];
+      const answer = question.answers[Math.floor(Math.random() * question.answers.length)];
       res.answer = answer.answer;
       res.info = ` Получено сообщение: [${res.text}] \n Исправление ошибок: [${question.text}] \n Сгенерирован ответ: [${answer.answer}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: [${"DirectBoost"}] \n\n`;
       res.status = true;
