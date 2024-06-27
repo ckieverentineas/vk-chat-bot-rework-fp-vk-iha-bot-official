@@ -55,7 +55,7 @@ async function findClosestMatch(query: string[], sentences: Question[]): Promise
     return matches;
 }
 
-async function Reseacher_New_Format(res: { text: string, answer: string, info: string, status: boolean }, context: Context, data_old: number, vk: VK) {
+async function Reseacher_New_Format(res: { text: string, answer: string, info: string, status: boolean }, context: Context | any, data_old: number, vk: VK) {
     const sentence_array = await tokenizeText(context.text!);
     const matchGenerator = Generator_Sentence();
     let result: Match[] = [];

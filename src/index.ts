@@ -14,6 +14,7 @@ import prisma from './module/prisma';
 import { Prefab_Engine } from './engine/prefab/prefab_engine';
 import { Replacer_System_Params } from './engine/reseacher/specializator';
 import { Sleep } from './engine/helper';
+import { Answer_Offline } from './engine/offline_answer';
 dotenv.config();
 
 
@@ -176,6 +177,7 @@ Promise.all(vkEntities.map(async entity => {
 		  });*/
 		vk.updates.start().then(() => {
 			console.log('Бот успешно запущен и готов к эксплуатации!')
+			Answer_Offline(vk)
 		}).catch(console.log);
 	})
 })
