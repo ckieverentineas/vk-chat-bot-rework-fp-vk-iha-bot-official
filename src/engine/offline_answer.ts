@@ -1,5 +1,6 @@
 import { root } from "..";
 import prisma from "../module/prisma";
+import { Input_Message_Cleaner } from "./clear_input";
 import { Answer_Core_Edition } from "./core/reseacher_controller";
 import { Sleep } from "./helper";
 import { Direct_Search } from "./reseacher/reseach_direct_boost";
@@ -44,7 +45,7 @@ export async function Answer_Offline(vk: any) {
                 await vk.api.messages.send({
                     peer_id: peerId,
                     random_id: 0,
-                    message: `Привет я снова в сети, ты пишешь: ${message.last_message.text}, мой ответ: ${res.answer}`
+                    message: `Привет я снова в сети, ты пишешь: ${Input_Message_Cleaner(message.last_message.text)}, мой ответ: ${res.answer}`
                 });
 				console.log(res.info);
 			} catch (e) {

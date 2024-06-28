@@ -7,6 +7,7 @@ import { compareTwoStrings } from 'string-similarity';
 import { Question } from "@prisma/client";
 import { Context, MessageContext, VK } from "vk-io";
 import { Add_Unknown } from "../education/education_egine";
+import { Input_Message_Cleaner } from "../clear_input";
 
 // Функция для токенизации текста
 async function tokenizeText(text: string): Promise<string[]> {
@@ -113,7 +114,7 @@ async function processInputData(res: { text: string, answer: string, info: strin
         }
     }
     if (answers.length > 0) {
-        res.answer =  answers.length == 1 ? answers.map(answer => `${answer.answer}\n\n`).join('') : answers.map(answer => `${answer.input}: \n${answer.answer}\n\n`).join('')
+        res.answer =  answers.length == 1 ? answers.map(answer => `${answer.answer}\n\n`).join('') : answers.map(answer => `${Input_Message_Cleaner(answer.input)}: \n${answer.answer}\n\n`).join('')
         res.info = ` Получено сообщение: [${res.text}] \n Исправление ошибок: [${answers.map(answer => `${answer.id} --> ${answer.qestion}`).join(' ')}] \n Сгенерирован ответ: [${answers.map(answer => `${answer.id} <-- ${answer.answer}`).join(' ')}] \n Затраченно времени: [${(Date.now() - data_old)/1000} сек.] \n Откуда ответ: 	     [${"MultiBoost~"}] \n\n`
         res.status = true
     }
