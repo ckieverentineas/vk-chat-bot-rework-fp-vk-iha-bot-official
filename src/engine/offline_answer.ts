@@ -25,10 +25,12 @@ export async function Answer_Offline(vk: any) {
             if (message.last_message.text == '') { continue }
             await Sleep(Math.floor(Math.random() * (50000 - 10000 + 1)) + 10000)
             const peerId = message.conversation.peer.id;
+            if (peerId < 0) { continue }
             const context = {
                 senderId: message.conversation.peer.id,
                 text: message.last_message.text
             }
+            if (typeof context.text != 'string' || (typeof context.text == 'string' && context.text.length < 3) ) { continue }
             //модуль поиска с прямым вхождением 1 к 1-му
 	        const dataOld = Date.now();
             let res: { text: string; answer: string; info: string; status: boolean; } = { text: context.text, answer: '', info: '', status: false }
