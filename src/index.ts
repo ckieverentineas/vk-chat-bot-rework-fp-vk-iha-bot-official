@@ -3,7 +3,7 @@ import { HearManager } from '@vk-io/hear';
 import { QuestionManager, IQuestionMessageContext } from 'vk-io-question';
 import { registerUserRoutes } from './engine/player'
 import { InitGameRoutes } from './engine/init';
-//import { registerCommandRoutes } from './engine/command';
+import { registerCommandRoutes } from './engine/command';
 const natural = require('natural');
 import * as dotenv from "dotenv";
 import { Analyzer_Core_Edition } from './engine/core/analyzer_controller';
@@ -107,7 +107,7 @@ Promise.all(vkEntities.map(async entity => {
 		//регистрация роутов из других классов
 		InitGameRoutes(hearManager)
 		registerUserRoutes(hearManager)
-		//registerCommandRoutes(hearManager)
+		registerCommandRoutes(hearManager)
 		//миддлевар для предварительной обработки сообщений
 		vk.updates.on('message_new', async (context: Context, next) => {
 			//модуль предобработки сообщений
@@ -182,5 +182,5 @@ Promise.all(vkEntities.map(async entity => {
 	})
 })
 
-//запуск автостатуса каждые 2-10 минут
-setInterval(updateStatuses, randomInt(2,10) * 60 * 1000);
+//запуск автостатуса каждые 2 минут
+setInterval(updateStatuses, 120000);

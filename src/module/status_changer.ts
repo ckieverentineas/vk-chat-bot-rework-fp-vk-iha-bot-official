@@ -1,4 +1,4 @@
-import { starting_date, vks, vks_info } from "..";
+import { vks, vks_info } from "..";
 
 export async function updateStatuses() {
     for (let i = 0; i < vks.length; i++) {
@@ -6,16 +6,16 @@ export async function updateStatuses() {
         const info = vks_info[i];
         try {
             if (info.type === 'page') {
-            await vk.api.status.set({
-                text: `${await Up_Time()}`
-            });
-            console.log(`Статус ${info.type} с ID ${info.idvk} изменен`);
+                await vk.api.status.set({
+                    text: `${await TimeUntilNewYear()}`
+                });
+                console.log(`Статус ${info.type} с ID ${info.idvk} изменен`);
             } else if (info.type === 'group') {
                 /*
                 await vk.api.status.set({
                     group_id: info.idvk,
-                    status: `${await Up_Time()}`
-                })
+                    status: `${await TimeUntilNewYear()}`
+                });
                 console.log(`Статус группы с ID ${info.idvk} изменен`);
                 */
             }
@@ -24,14 +24,20 @@ export async function updateStatuses() {
         }
     }
 }
-async function Up_Time() {
+
+async function TimeUntilNewYear() {
     const now = new Date();
-    const diff = now.getTime() - starting_date.getTime();
+    const newYear = new Date(now.getFullYear() + 1, 0, 1); // 1 января следующего года
+    const diff = newYear.getTime() - now.getTime();
+
     const timeUnits = [
-        { unit: "дней", value: Math.floor(diff / 1000 / 60 / 60 / 24) },
-        { unit: "часов", value: Math.floor((diff / 1000 / 60 / 60) % 24) },
-        { unit: "минут", value: Math.floor((diff / 1000 / 60) % 60) },
-        { unit: "секунд", value: Math.floor((diff / 1000) % 60) },
+        { unit: "дн.", value: Math.floor(diff / 1000 / 60 / 60 / 24) },
+        { unit: "ч.", value: Math.floor((diff / 1000 / 60 / 60) % 24) },
+        { unit: "мин.", value: Math.floor((diff / 1000 / 60) % 60) }
     ];
-    return `Время работы: ${timeUnits.filter(({ value }) => value > 0).map(({ unit, value }) => `${value} ${unit}`).join(" ")}`
+
+    return `🎄 До НГ осталось: ${timeUnits
+        .filter(({ value }) => value > 0)
+        .map(({ unit, value }) => `${value} ${unit}`)
+        .join(" ")}`;
 }

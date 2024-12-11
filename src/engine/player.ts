@@ -60,6 +60,26 @@ export function registerUserRoutes(hearManager: HearManager<IQuestionMessageCont
             }
         }
     })
+    hearManager.hear(/!забань/, async (context) => {
+        if (context.isOutbox == false) {
+            const target: number = context.senderId; // Извлекаем ID отправителя
+            if (target > 0) {
+                const user: any = await prisma.user.findFirst({ where: { idvk: target } });
+                if (user) {
+                    const login = await prisma.user.update({
+                        where: { idvk: target },
+                        data: { ignore: user.ignore ? false : true } // Переключаем статус на игнор
+                    });
+                    await context.send(`@id${login.idvk}(Юзер) ${login.ignore ? 'ты меня обидел, теперь не буду отвечать тебе' : 'я тебя прощаю, давай общаться)'}`);
+                    console.log(`@id${login.idvk}(Пользователь) ${login.ignore ? 'добавлен в лист игнора' : 'убран из листа игнора'}`);
+                } else {
+                    await context.send(`@id${target}(Пользователья) не существует`);
+                    console.log(`@id${target}(Пользователья) не существует`);
+                }
+            }
+        }
+    });
+    
     hearManager.hear(/!права/, async (context) => {
         if (context.isOutbox == false && (context.senderId == root || await User_Access(context) == true) && context.text) {
             const target: number = Number(context.text.replace(/[^0-9]/g,"")) || 0
