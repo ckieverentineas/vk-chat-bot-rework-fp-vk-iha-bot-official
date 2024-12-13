@@ -103,9 +103,9 @@ async function processInputData(res: { text: string, answer: string, info: strin
                         await vk.api.messages.send({
                             peer_id: Number(root),
                             random_id: 0,
-                            message: `Обнаружен новый вопрос для обучения:\n\n${Input_Message_Cleaner(unknown_add.text)}`
+                            message: `Я не знаю что ответить на эту фразу:\n\n${Input_Message_Cleaner(unknown_add.text)}`
                         })
-                        console.log(`Обнаружен новый вопрос для обучения:\n\n${unknown_add.text}`)
+                        console.log(`Новый вопрос для обучения:\n\n${unknown_add.text}`)
                     } catch (e) {
                         console.log(`Ошибка уведомления о сохранении вопроса ${e}`)
                     }

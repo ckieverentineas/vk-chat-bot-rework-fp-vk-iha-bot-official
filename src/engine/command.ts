@@ -5,7 +5,7 @@ const rq = require("prequest");
 
 export function registerCommandRoutes(hearManager: HearManager<IQuestionMessageContext>): void {
     hearManager.hear(/!погода/, async (context) => {
-        if (context.isOutbox == false && context.senderId == root && context?.text != undefined) {
+        if (context.isOutbox == false && context?.text != undefined) {
             const match = context.text.match(/^(?:!погода|!weather)\s?(.*)/i);
 
             // Проверяем, что match и match[1] существуют
@@ -92,4 +92,51 @@ export function registerCommandRoutes(hearManager: HearManager<IQuestionMessageC
                 });
         }
     });
+    // Паттерны саркастических сообщений
+const patterns = [
+    "Уже %HOUR% блядских часов и %MINUTE% ёбаных минут длится этот хуёвый день!",
+    "%HOUR% блядских часов и %MINUTE% ёбаных минут. Самое время убивать!",
+    "На часах %HOUR% часов. Обычно в это время случается какая-то хуйня.",
+    "%HOUR% сраных часов и %MINUTE% ебучих минут.",
+    "%HOUR% %MINUTE%, блять!",
+    "%HOUR% %MINUTE%, нах!",
+    "В %HOUR% часов %MINUTE% минут пора пожрать.",
+    "На часах %HOUR% часов, %MINUTE% минут. Но какой в этом толк, если ты тратишь свою жизнь впустую?"
+];
+
+// Функция для преобразования числа в текст
+function numberToText(number: number): string {
+    const textNumbers = [
+        "ноль", "один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять",
+        "десять", "одиннадцать", "двенадцать", "тринадцать", "четырнадцать", "пятнадцать",
+        "шестнадцать", "семнадцать", "восемнадцать", "девятнадцать", "двадцать",
+        "двадцать один", "двадцать два", "двадцать три", "двадцать четыре", "двадцать пять",
+        "двадцать шесть", "двадцать семь", "двадцать восемь", "двадцать девять", "тридцать",
+        "тридцать один", "тридцать два", "тридцать три", "тридцать четыре", "тридцать пять",
+        "тридцать шесть", "тридцать семь", "тридцать восемь", "тридцать девять", "сорок",
+        "сорок один", "сорок два", "сорок три", "сорок четыре", "сорок пять", "сорок шесть",
+        "сорок семь", "сорок восемь", "сорок девять", "пятьдесят", "пятьдесят один",
+        "пятьдесят два", "пятьдесят три", "пятьдесят четыре", "пятьдесят пять",
+        "пятьдесят шесть", "пятьдесят семь", "пятьдесят восемь", "пятьдесят девять"
+    ];
+    return textNumbers[number] || number.toString();
+}
+
+
+// Функция обработки команды
+hearManager.hear(/!злыечасы/i, async (context) => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    const hoursText = numberToText(hours);
+    const minutesText = numberToText(minutes);
+
+    const randomIndex = Math.floor(Math.random() * patterns.length);
+    const message = patterns[randomIndex]
+        .replace("%HOUR%", hoursText.toUpperCase())
+        .replace("%MINUTE%", minutesText.toUpperCase());
+
+    await context.send(message);
+});
 }
